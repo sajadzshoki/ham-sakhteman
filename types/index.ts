@@ -76,3 +76,28 @@ export interface Invitation {
   usedAt?: string
   createdAt: string
 }
+
+export interface Announcement {
+  id: string
+  buildingId: string
+  title: string
+  description: string
+  importance: 'normal' | 'important'
+  imageUrl?: string
+  createdBy: string
+  createdAt: string
+}
+
+export interface ProblemReport {
+  id: string
+  buildingId: string
+  category: 'water' | 'electricity' | 'elevator' | 'gas' | 'common' | 'cleaning' | 'other'
+  title: string
+  description: string
+  imageUrl?: string
+  status: 'new' | 'in-progress' | 'resolved'
+  createdBy: string
+  createdAt: string
+  updatedAt?: string
+  assignedTo?: string
+}

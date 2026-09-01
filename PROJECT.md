@@ -86,3 +86,32 @@ Branch: `arena/01a05c00-ham-sakhteman`
 - `/login`, `/register`
 - `/buildings` (list + create + onboarding)
 - `/building?id=` (overview + units + members + invitation management)
+
+## Phase 2 — Dashboard + Announcements + Problem Reports
+
+### Dashboard (index.vue)
+- Dynamic greeting with auth name and current building/unit
+- Latest announcements cards (important/normal badges, date, description)
+- Open problem cards with category, status, title, description
+- Manager quick actions: Announcements + Problem Reports
+- Resident quick actions: Announcements + Problem Reports
+- All mobile-first cards; no dense tables
+
+### Announcements
+- `/announcements` list with filter by building; detail view via query `?id=`
+- Manager CRUD: create/edit (title, description, importance, optional image), delete
+- Empty/loading/error states built with existing UI components
+- Mock data seed: repair elevator + resident meeting
+
+### Problem Reports
+- `/problems` list with category filter; detail via `?id=`
+- `/problems/new` create form (category, title, description)
+- Categories: آب / برق / آسانسور / گاز / مشاعات / نظافت / سایر
+- Statuses: جدید / در حال پیگیری / حل شده
+- Manager can update status; resident can create/view
+- Mock data: elevator failure + water leak
+
+### Design & Architecture
+- Persistent localStorage via composables (`useAnnouncements`, `useProblems`)
+- Arabic/Persian text, RTL, Vazirmatn, teal/slate palette
+- All new routes and components checked against build (zero errors)

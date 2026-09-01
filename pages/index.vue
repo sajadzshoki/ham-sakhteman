@@ -1,5 +1,18 @@
 <script setup lang="ts">
 const { t } = useI18n()
+const auth = useAuth()
+const { buildings, getBuilding } = useBuildings()
+const { getByBuilding: getAnn } = useAnnouncements()
+const { getByBuilding: getProb, categoryLabels, statusLabels } = useProblems()
+
+const currentBuilding = computed(() => {
+  if (!auth.isAuthenticated || buildings.value.length === 0) return null
+  return buildings.value[0]
+})
+
+const announcements = computed(() => currentBuilding.value ? getAnn(currentBuilding.value.id).slice(0, 3) : [])
+const openProblems = computed(() => currentBuilding.value ? getProb(currentBuilding.value.id).filter(p => p.status !== 'resolved').slice(0, 3) : [])
+
 
 const quickActions = [
   { icon: 'i-lucide-building-2', label: 'ساختمان‌ها', to: '/buildings', color: 'from-violet-400 to-indigo-500' },
@@ -33,8 +46,8 @@ const events = [
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />
             وضعیت فعال
           </div>
-          <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight leading-tight mb-1">سلام علی</h1>
-          <p class="text-primary-100 text-sm md:text-base font-medium leading-relaxed">خوش آمدید به مدیریت ساختمان هم‌ساختمان. امروز همه چیز در حال انجام است.</p>
+          <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight leading-tight mb-1">سلام {{ (auth.user as any)?.name || 'علی' }}</h1>
+          <p class="text-primary-100 text-sm md:text-base font-medium leading-relaxed">{{ currentBuilding ? currentBuilding.name + ' — ' + currentBuilding.address : 'خوش آمدید به مدیریت ساختمان هم‌ساختمان' }}</p>
         </div>
       </div>
     </section>
@@ -52,6 +65,55 @@ const events = [
       </div>
     </section>
 
+    <!-- Announcements -->
+    <section class="mb-6" v-if="announcements.length">
+      <PageHeader title="آخرین اطلاعیه‌ها" subtitle="اطلاعیه‌های ساختمان" />
+      <div class="flex flex-col gap-3">
+        <NuxtLink v-for="a in announcements" :key="a.id" :to="'/announcements?id=' + a.id" class="bg-white rounded-3xl p-4 shadow-soft border border-slate-100/80 hover:shadow-soft-lg transition-all">
+          <div class="flex items-center gap-2 mb-1">
+            <StatusBadge :status="a.importance === 'important' ? 'warning' : 'success'" :label="a.importance === 'important' ? 'مهم' : 'عادی'" />
+            <span class="text-[10px] text-slate-300 font-medium">{{ a.createdAt ? a.createdAt.slice(0,10) : '' }}</span>
+          </div>
+          <h4 class="text-sm font-extrabold text-slate-900 leading-snug">{{ a.title }}</h4>
+          <p class="text-xs text-slate-400 font-medium truncate">{{ a.description }}</p>
+        </NuxtLink>
+      </div>
+      <div v-if="!auth.isAuthenticated" class="mt-3 text-center"><NuxtLink to="/login" class="text-xs font-extrabold text-primary-600">ورود برای مشاهده بیشتر</NuxtLink></div>
+    </section>
+
+    <!-- Open problems -->
+    <section class="mb-6" v-if="openProblems.length">
+      <PageHeader title="مشکلات باز" subtitle="گزارش‌های در حال بررسی" />
+      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <AppCard v-for="p in openProblems" :key="p.id" padding="md" hover>
+          <NuxtLink :to="'/problems?id=' + p.id" class="block">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-xs font-bold bg-rose-50 text-rose-600 px-2 py-0.5 rounded-md border border-rose-100">{{ categoryLabels[p.category] || p.category }}</span>
+              <StatusBadge :status="p.status === 'new' ? 'pending' : p.status === 'in-progress' ? 'in-progress' : 'completed'" :label="statusLabels[p.status] || p.status" />
+            </div>
+            <h4 class="text-sm font-extrabold text-slate-900 leading-snug">{{ p.title }}</h4>
+            <p class="text-xs text-slate-400 font-medium truncate">{{ p.description }}</p>
+          </NuxtLink>
+        </AppCard>
+      </div>
+    </section>
+
+    <!-- Quick manager/resident actions -->
+    <section class="mb-8" v-if="auth.isManager || auth.isAuthenticated">
+      <PageHeader title="دسترسی سریع" subtitle="خدمات پرکاربرد" />
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <NuxtLink to="/announcements" class="group bg-white rounded-3xl p-4 shadow-soft hover:shadow-soft-lg transition-all duration-300 hover:-translate-y-0.5 border border-slate-100/80 flex flex-col items-center text-center gap-2.5">
+          <span class="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center shadow-soft-lg shadow-inner-soft transition-transform group-hover:scale-110"><Icon name="i-lucide-bullhorn" class="w-6 h-6" /></span>
+          <span class="text-sm font-extrabold text-slate-800 leading-snug">اعلان‌ها</span>
+        </NuxtLink>
+        <NuxtLink to="/problems" class="group bg-white rounded-3xl p-4 shadow-soft hover:shadow-soft-lg transition-all duration-300 hover:-translate-y-0.5 border border-slate-100/80 flex flex-col items-center text-center gap-2.5">
+          <span class="w-12 h-12 rounded-2xl bg-gradient-to-br from-rose-400 to-rose-500 text-white flex items-center justify-center shadow-soft-lg shadow-inner-soft transition-transform group-hover:scale-110"><Icon name="i-lucide-wrench" class="w-6 h-6" /></span>
+          <span class="text-sm font-extrabold text-slate-800 leading-snug">گزارش مشکل</span>
+        </NuxtLink>
+      </div>
+    </section>
+
+    <!-- Building status + notifications -->
     <!-- Building status + notifications -->
     <div class="grid md:grid-cols-3 gap-5 mb-8">
       <AppCard class="md:col-span-2" padding="lg">
