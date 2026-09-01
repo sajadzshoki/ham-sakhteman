@@ -101,3 +101,32 @@ export interface ProblemReport {
   updatedAt?: string
   assignedTo?: string
 }
+
+export interface Charge {
+  id: string
+  buildingId: string
+  title: string
+  amount: number
+  period: string
+  dueDate: string
+  description?: string
+  status: 'unpaid' | 'paid' | 'late'
+  paidAt?: string
+  paidBy?: string
+  note?: string
+  createdAt: string
+  createdBy: string
+}
+
+export interface Expense {
+  id: string
+  buildingId: string
+  title: string
+  amount: number
+  category: 'water' | 'gas' | 'electricity' | 'elevator' | 'cleaning' | 'repair' | 'other'
+  date: string
+  description?: string
+  receiptUrl?: string
+  createdAt: string
+  createdBy: string
+}

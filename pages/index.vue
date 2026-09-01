@@ -4,6 +4,13 @@ const auth = useAuth()
 const { buildings, getBuilding } = useBuildings()
 const { getByBuilding: getAnn } = useAnnouncements()
 const { getByBuilding: getProb, categoryLabels, statusLabels } = useProblems()
+const { charges, expenses } = useFinance()
+const fmt = (n: number) => (n || 0).toLocaleString('fa-IR') + ' تومان'
+const currentBuildingId = computed(() => buildings.value[0]?.id || 'b-1')
+const chargeIncome = computed(() => (charges.value.filter(c => c.buildingId === currentBuildingId.value && c.status === 'paid').reduce((s, c) => s + c.amount, 0)))
+const expenseTotal = computed(() => expenses.value.filter(e => e.buildingId === currentBuildingId.value).reduce((s, e) => s + e.amount, 0))
+const balance = computed(() => chargeIncome.value - expenseTotal.value)
+const paidCount = computed(() => charges.value.filter(c => c.buildingId === currentBuildingId.value && c.status === 'paid').length)
 
 const currentBuilding = computed(() => {
   if (!auth.isAuthenticated || buildings.value.length === 0) return null
@@ -157,6 +164,30 @@ const events = [
         </div>
       </AppCard>
     </div>
+
+    <!-- Financial overview -->
+    <section class="mb-8">
+      <PageHeader title="وضعیت مالی" subtitle="درآمد، هزینه و مانده" />
+      
+      <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <AppCard padding="md" class="bg-gradient-to-br from-emerald-50 to-white border-emerald-100/60">
+          <div class="text-xs text-emerald-600 font-bold">درآمد شارژ</div>
+          <div class="text-xl font-extrabold text-emerald-700 mt-0.5">{{ fmt(chargeIncome) }}</div>
+        </AppCard>
+        <AppCard padding="md" class="bg-gradient-to-br from-rose-50 to-white border-rose-100/60">
+          <div class="text-xs text-rose-600 font-bold">هزینه‌ها</div>
+          <div class="text-xl font-extrabold text-rose-700 mt-0.5">{{ fmt(expenseTotal) }}</div>
+        </AppCard>
+        <AppCard padding="md" class="bg-gradient-to-br from-amber-50 to-white border-amber-100/60">
+          <div class="text-xs text-amber-600 font-bold">مانده</div>
+          <div class="text-xl font-extrabold text-amber-700 mt-0.5">{{ fmt(balance) }}</div>
+        </AppCard>
+        <AppCard padding="md" class="bg-gradient-to-br from-sky-50 to-white border-sky-100/60">
+          <div class="text-xs text-sky-600 font-bold">پرداخت شده</div>
+          <div class="text-xl font-extrabold text-sky-700 mt-0.5">{{ paidCount }}</div>
+        </AppCard>
+      </div>
+    </section>
 
     <!-- Upcoming events -->
     <section class="mb-8">

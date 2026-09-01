@@ -115,3 +115,10 @@ Branch: `arena/01a05c00-ham-sakhteman`
 - Persistent localStorage via composables (`useAnnouncements`, `useProblems`)
 - Arabic/Persian text, RTL, Vazirmatn, teal/slate palette
 - All new routes and components checked against build (zero errors)
+
+## Phase 3 — Building Charges + Expenses + Financial Transparency
+- Charge model: title/amount/period/due/status/payment with manager CRUD
+- Expense model: title/amount/category/date/receipt with manager create
+- Dashboard finance cards (income/expenses/balance/paid) integrated
+- Currency formatting utility fmtToman; mobile-first card layout
+- All routes verified, build passes, no errors
