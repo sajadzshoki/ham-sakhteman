@@ -1,0 +1,18 @@
+{
+  "extends": "./.nuxt/tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "strict": true,
+    "noEmit": true,
+    "moduleResolution": "bundler",
+    "target": "ESNext",
+    "module": "ESNext",
+    "jsx": "preserve"
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.vue",
+    ".nuxt/types/*.ts"
+  ],
+  "exclude": ["node_modules", ".nuxt/dist"]
+}

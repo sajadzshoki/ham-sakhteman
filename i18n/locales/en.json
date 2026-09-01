@@ -1,0 +1,58 @@
+{
+  "nav": {
+    "home": "Home",
+    "building": "Building",
+    "services": "Services",
+    "profile": "Profile"
+  },
+  "common": {
+    "welcome": "Welcome to Ham-Sakhteman",
+    "search": "Search",
+    "submit": "Submit",
+    "cancel": "Cancel",
+    "save": "Save",
+    "edit": "Edit",
+    "delete": "Delete",
+    "confirm": "Confirm",
+    "close": "Close",
+    "readMore": "Read more",
+    "loading": "Loading...",
+    "error": "Error",
+    "empty": "Nothing found",
+    "success": "Done"
+  },
+  "home": {
+    "title": "Home",
+    "subtitle": "Your building status",
+    "latestNews": "Latest news",
+    "quickActions": "Quick actions",
+    "buildingStatus": "Building status",
+    "upcomingEvents": "Upcoming events",
+    "notifications": "Notifications",
+    "viewAll": "View all"
+  },
+  "building": {
+    "title": "Building",
+    "subtitle": "Building info and management",
+    "units": "Units",
+    "residents": "Residents",
+    "expenses": "Expenses",
+    "devices": "Devices",
+    "maintenance": "Maintenance"
+  },
+  "services": {
+    "title": "Services",
+    "subtitle": "Building requests and services",
+    "requestService": "Request service",
+    "serviceHistory": "Service history",
+    "categories": "Categories"
+  },
+  "profile": {
+    "title": "Profile",
+    "subtitle": "Personal settings and info",
+    "personalInfo": "Personal info",
+    "security": "Security",
+    "notifications": "Notifications",
+    "language": "Language"
+  }
+}

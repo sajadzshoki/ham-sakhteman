@@ -1,0 +1,9 @@
+node_modules
+.nuxt
+.output
+dist
+npm-debug.log
+*.tgz
+.DS_Store
+.env
+.env.local

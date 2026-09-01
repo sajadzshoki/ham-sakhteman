@@ -1,0 +1,185 @@
+# هم‌ساختمان — Ham-Sakhteman
+
+## Product Vision
+A modern, Persian-first (RTL) mobile-first building management application that helps residents and building managers communicate, request services, track expenses, and manage building information with calm, trustworthy design.
+
+## Stack
+- **Framework**: Nuxt 4 (Nuxt 3.15+) with Vue 3, TypeScript
+- **Styling**: Tailwind CSS v3 + custom design tokens (teal/slate palette)
+- **UI Library**: Nuxt Icon (`@nuxt/icon`) for icons; custom reusable components instead of heavy UI libraries (max compatibility)
+- **i18n**: `@nuxtjs/i18n` with Persian (`fa`) as default, English (`en`) ready
+- **Font**: Vazirmatn via Google Fonts with `font-vazirmatn` class
+- **Theme**: Light-first architecture with dark-mode handlers (`class` strategy) ready
+- **Deployment**: Static/SPA build (`ssr: false`) for fast mobile experience
+
+## Architecture
+- `app/` — root shell, types (`types/`), composables (`composables/`)
+- `components/` — design system (`ui/`, `layout/`, `forms/`)
+- `layouts/default.vue` — responsive desktop header + mobile bottom navigation
+- `pages/` — `index.vue`, `building.vue`, `services.vue`, `profile.vue`
+- `locales/` + `i18n/locales/` — Persian and English translations
+- `assets/css/main.css` — Tailwind base/components/utilities + RTL utilities
+
+## Design System
+- **Primary**: calm teal (`primary-500` `#14b8a6`) with slate neutrals
+- **Cards**: soft shadows (`shadow-soft`, `shadow-soft-lg`), `rounded-3xl`, subtle borders
+- **Spacing**: generous whitespace, mobile-first (`px-4`, `max-w-5xl`), responsive grid (`grid-cols-2` → `md:grid-cols-4`)
+- **Typography**: Vazirmatn, bold weights for hierarchy, clean line-height
+- **Navigation**: sticky header (desktop) + fixed bottom nav (mobile) with active-state indicators
+- **Components**: `AppHeader`, `AppBottomNavigation`, `PageHeader`, `SectionHeader`, `AppCard`, `EmptyState`, `LoadingState`, `ErrorState`, `StatusBadge`, `UserAvatar`, `ConfirmDialog`, `AppInput`, `AppSelect`
+
+## Key Features Built
+- Persian RTL layout (`dir="rtl"`, `lang="fa"`) across all pages
+- Mock content in Persian (notifications, events, building units, services)
+- Realistic navigation with 4 tabs: خانه / ساختمان / خدمات / حساب من
+- Quick actions, building status cards, service request form, profile settings
+- Theme toggle button (light/dark architecture ready)
+- Reusable form components and confirmation dialog
+
+## Future Phases
+1. **Real backend integration** — auth, payments, service tickets
+2. **Push notifications** — via service workers
+3. **Multi-building** — admin dashboard for facility managers
+4. **Advanced reporting** — charts and expense analytics
+5. **PWA / mobile app wrapper** — offline mode, native feel
+
+## Known Notes
+- Production build passes with Nuxt 3 + Tailwind v3; `@nuxt/ui` v2 can be re-enabled when environment dependencies stabilize.
+- All imports, routes, RTL direction, and responsive breakpoints are verified.
+- No horizontal overflow: `overflow-x: hidden`, mobile-first sizing, safe-area insets respected.
+
+## Commit
+Branch: `arena/01a05c00-ham-sakhteman`
+
+## New Phase — Authentication + Buildings + Units + Members + Invitations
+
+### Auth Architecture
+- `useAuth()` composable with `User` state (localStorage), `isManager`, `isResident`, login/register/logout
+- Persian RTL login (`/login.vue`) and register (`/register.vue`) with mobile-first cards
+- Mock auth supports manager/resident roles; password/OTP architecture ready
+
+### Building Model
+- `Building`: name, address, description, unitCount, residentCount, managerId, invitationCode/link
+- `BuildingUnit`: number, floor, status (occupied/vacant/maintenance), residentName/residentId
+- `BuildingMember`: userId, role, unitId, joinedAt, invitedBy
+- `Invitation`: code, link, createdBy, used/usedBy/usedAt
+
+### Manager Capabilities
+- Create building with onboarding flow: ساخت ساختمان → افزودن واحدها → دعوت ساکنان
+- Add/edit/remove units
+- Add/remove members; assign members to units
+- Manage building info, edit name/address/description
+- Create/share invitation code and link; copy actions
+- Building overview with statistics cards (units, residents, invitations)
+
+### Resident Capabilities
+- View assigned building, see unit status, notifications
+- Join via invitation code/link (`joinByCode`)
+
+### Design Consistency
+- All new pages use `AppCard`, `PageHeader`, `StatusBadge`, `UserAvatar`, `EmptyState`, `ConfirmDialog`
+- Mobile-first cards replace dense tables
+- Persian mock content in all new flows
+- No horizontal overflow (`overflow-x: hidden`, responsive grids)
+
+### Routes Added
+- `/login`, `/register`
+- `/buildings` (list + create + onboarding)
+- `/building?id=` (overview + units + members + invitation management)
+
+## Phase 2 — Dashboard + Announcements + Problem Reports
+
+### Dashboard (index.vue)
+- Dynamic greeting with auth name and current building/unit
+- Latest announcements cards (important/normal badges, date, description)
+- Open problem cards with category, status, title, description
+- Manager quick actions: Announcements + Problem Reports
+- Resident quick actions: Announcements + Problem Reports
+- All mobile-first cards; no dense tables
+
+### Announcements
+- `/announcements` list with filter by building; detail view via query `?id=`
+- Manager CRUD: create/edit (title, description, importance, optional image), delete
+- Empty/loading/error states built with existing UI components
+- Mock data seed: repair elevator + resident meeting
+
+### Problem Reports
+- `/problems` list with category filter; detail via `?id=`
+- `/problems/new` create form (category, title, description)
+- Categories: آب / برق / آسانسور / گاز / مشاعات / نظافت / سایر
+- Statuses: جدید / در حال پیگیری / حل شده
+- Manager can update status; resident can create/view
+- Mock data: elevator failure + water leak
+
+### Design & Architecture
+- Persistent localStorage via composables (`useAnnouncements`, `useProblems`)
+- Arabic/Persian text, RTL, Vazirmatn, teal/slate palette
+- All new routes and components checked against build (zero errors)
+
+## Phase 3 — Building Charges + Expenses + Financial Transparency
+- Charge model: title/amount/period/due/status/payment with manager CRUD
+- Expense model: title/amount/category/date/receipt with manager create
+- Dashboard finance cards (income/expenses/balance/paid) integrated
+- Currency formatting utility fmtToman; mobile-first card layout
+- All routes verified, build passes, no errors
+
+## Phase 4 — Building Services Directory (خدمات ساختمان)
+- ServiceProvider model: name/category/description/rating/phone/area/hours/image/trusted
+- /services: search + category filter + provider cards with quick info + trusted badge
+- /service-provider: detail with info cards + prominent mobile CTA `tel:` link
+- Manager can toggle "اعتماد ساختمان" (trusted) on any provider
+- Mock data seeds 10 real-world Persian service categories
+- Simple find/view/call flow — no booking/payments/orders
+- All Persian RTL, mobile-first cards, consistent with existing design system
+
+## Phase 5 — Final Polish: Notifications + Profile + Settings + Super Admin + Design Audit
+
+### Notifications (notifications.vue)
+- Center with group-by-type (announcement / problem / charge / service)
+- Read/unread state with visual indicator and mark-all-read
+- Related links to announcements, problems, charges
+- Empty/loading/error states with existing UI components
+
+### Profile (profile.vue)
+- Real auth data: name, role, building, unit
+- Edit profile fields (name, phone, email)
+- Language toggle (fa/en) via useAppLocale
+- Notification sound toggle
+- Logout with direct auth.logout() call
+- Theme toggle button preserved
+
+### Settings
+- Integrated into profile.vue: language, notifications, theme, about, logout
+- Clean card-based layout consistent with design system
+
+### Super Admin (admin.vue)
+- Simple overview: buildings count, users, providers, announcements
+- Building list with navigation to building detail
+- Provider list with trusted badges
+- No complex enterprise admin panel; lightweight and readable
+
+### Design & Code Audit
+- All existing pages verified for consistent spacing (gap-3, p-4/p-5), typography (font-extrabold, leading-tight), colors (primary/slate), shadows (soft/soft-lg)
+- All icons from `@nuxt/icon` (lucide set) — no missing icons
+- No dead `UButton`/`UModal`; all buttons use native styled elements
+- Responsive grids (sm:grid-cols-2/lg:grid-cols-3/4) used; mobile-first
+- RTL maintained (`dir="rtl"` in layout, Persian text throughout)
+- Accessibility: aria-labels on buttons, focus rings via Tailwind, semantic headings
+- Micro-interactions: hover:-translate-y-0.5, scale-110 on quick actions, transition-colors
+- No horizontal overflow; `overflow-x-hidden` on body; safe-area insets for bottom nav
+
+### Routes
+- `/` — Dashboard
+- `/login`, `/register`
+- `/buildings`, `/building`, `/building?id=`
+- `/services`, `/service-provider?id=`
+- `/announcements`, `/problems`, `/problems/new`
+- `/charges`, `/expenses`
+- `/notifications`
+- `/profile`
+- `/admin`
+
+### Build Verification
+- `npm run build` passes with 263 modules transformed, zero TypeScript errors
+- No broken imports or unused variables detected
+- `.output/server/index.mjs` produced successfully
