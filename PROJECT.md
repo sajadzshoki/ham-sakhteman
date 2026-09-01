@@ -122,3 +122,12 @@ Branch: `arena/01a05c00-ham-sakhteman`
 - Dashboard finance cards (income/expenses/balance/paid) integrated
 - Currency formatting utility fmtToman; mobile-first card layout
 - All routes verified, build passes, no errors
+
+## Phase 4 — Building Services Directory (خدمات ساختمان)
+- ServiceProvider model: name/category/description/rating/phone/area/hours/image/trusted
+- /services: search + category filter + provider cards with quick info + trusted badge
+- /service-provider: detail with info cards + prominent mobile CTA `tel:` link
+- Manager can toggle "اعتماد ساختمان" (trusted) on any provider
+- Mock data seeds 10 real-world Persian service categories
+- Simple find/view/call flow — no booking/payments/orders
+- All Persian RTL, mobile-first cards, consistent with existing design system

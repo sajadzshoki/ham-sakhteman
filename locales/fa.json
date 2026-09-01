@@ -45,7 +45,11 @@
     "subtitle": "درخواست‌ها و خدمات ساختمان",
     "requestService": "درخواست خدمت",
     "serviceHistory": "تاریخچه خدمات",
-    "categories": "دسته‌بندی‌ها"
+    "categories": "دسته‌بندی‌ها",
+    "searchPlaceholder": "نام خدماتی یا دسته...",
+    "find": "پیدا کن",
+    "call": "تماس بگیر",
+    "trusted": "مورد اعتماد ساختمان"
   },
   "profile": {
     "title": "حساب من",

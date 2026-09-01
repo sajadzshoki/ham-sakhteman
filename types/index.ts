@@ -130,3 +130,18 @@ export interface Expense {
   createdAt: string
   createdBy: string
 }
+
+export interface ServiceProvider {
+  id: string
+  name: string
+  category: 'plumbing' | 'electricity' | 'elevator' | 'cleaning' | 'painting' | 'ac' | 'boiler' | 'installations' | 'glass' | 'lock' | 'other'
+  description: string
+  rating: number
+  phone: string
+  area: string
+  workingHours: string
+  imageUrl?: string
+  trusted?: boolean
+  createdAt: string
+  createdBy?: string
+}
