@@ -50,3 +50,39 @@ A modern, Persian-first (RTL) mobile-first building management application that 
 
 ## Commit
 Branch: `arena/01a05c00-ham-sakhteman`
+
+## New Phase — Authentication + Buildings + Units + Members + Invitations
+
+### Auth Architecture
+- `useAuth()` composable with `User` state (localStorage), `isManager`, `isResident`, login/register/logout
+- Persian RTL login (`/login.vue`) and register (`/register.vue`) with mobile-first cards
+- Mock auth supports manager/resident roles; password/OTP architecture ready
+
+### Building Model
+- `Building`: name, address, description, unitCount, residentCount, managerId, invitationCode/link
+- `BuildingUnit`: number, floor, status (occupied/vacant/maintenance), residentName/residentId
+- `BuildingMember`: userId, role, unitId, joinedAt, invitedBy
+- `Invitation`: code, link, createdBy, used/usedBy/usedAt
+
+### Manager Capabilities
+- Create building with onboarding flow: ساخت ساختمان → افزودن واحدها → دعوت ساکنان
+- Add/edit/remove units
+- Add/remove members; assign members to units
+- Manage building info, edit name/address/description
+- Create/share invitation code and link; copy actions
+- Building overview with statistics cards (units, residents, invitations)
+
+### Resident Capabilities
+- View assigned building, see unit status, notifications
+- Join via invitation code/link (`joinByCode`)
+
+### Design Consistency
+- All new pages use `AppCard`, `PageHeader`, `StatusBadge`, `UserAvatar`, `EmptyState`, `ConfirmDialog`
+- Mobile-first cards replace dense tables
+- Persian mock content in all new flows
+- No horizontal overflow (`overflow-x: hidden`, responsive grids)
+
+### Routes Added
+- `/login`, `/register`
+- `/buildings` (list + create + onboarding)
+- `/building?id=` (overview + units + members + invitation management)

@@ -54,5 +54,37 @@
     "security": "امنیت",
     "notifications": "اعلان‌ها",
     "language": "زبان"
+  },
+  "auth": {
+    "login": "ورود",
+    "register": "ثبت‌نام",
+    "logout": "خروج",
+    "email": "ایمیل",
+    "password": "رمز عبور",
+    "name": "نام",
+    "confirmPassword": "تأیید رمز عبور",
+    "welcomeBack": "خوش آمدید",
+    "createAccount": "ایجاد حساب",
+    "alreadyHaveAccount": "قبلاً حساب دارید؟",
+    "noAccount": "حساب ندارید؟",
+    "manager": "مدیر ساختمان",
+    "resident": "ساکن"
+  },
+  "buildings": {
+    "myBuildings": "ساختمان‌های من",
+    "createBuilding": "ساخت ساختمان",
+    "buildingName": "نام ساختمان",
+    "address": "آدرس",
+    "unitCount": "تعداد واحدها",
+    "description": "توضیحات",
+    "members": "اعضا",
+    "units": "واحدها",
+    "invitation": "دعوت",
+    "inviteLink": "لینک دعوت",
+    "inviteCode": "کد دعوت",
+    "copyLink": "کپی لینک",
+    "share": "اشتراک‌گذاری",
+    "joinBuilding": "پیوستن به ساختمان",
+    "joinSuccess": "با موفقیت پیوستید"
   }
 }

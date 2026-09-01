@@ -2,6 +2,7 @@
 const { t } = useI18n()
 
 const quickActions = [
+  { icon: 'i-lucide-building-2', label: 'ساختمان‌ها', to: '/buildings', color: 'from-violet-400 to-indigo-500' },
   { icon: 'i-lucide-file-text', label: 'درخواست خدمت', to: '/services', color: 'from-teal-450 to-primary-500' },
   { icon: 'i-lucide-bell', label: 'اعلان‌ها', to: '/profile', color: 'from-amber-400 to-orange-500' },
   { icon: 'i-lucide-wallet', label: 'مالیات', to: '/building', color: 'from-violet-400 to-indigo-500' },
