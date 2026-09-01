@@ -131,3 +131,55 @@ Branch: `arena/01a05c00-ham-sakhteman`
 - Mock data seeds 10 real-world Persian service categories
 - Simple find/view/call flow — no booking/payments/orders
 - All Persian RTL, mobile-first cards, consistent with existing design system
+
+## Phase 5 — Final Polish: Notifications + Profile + Settings + Super Admin + Design Audit
+
+### Notifications (notifications.vue)
+- Center with group-by-type (announcement / problem / charge / service)
+- Read/unread state with visual indicator and mark-all-read
+- Related links to announcements, problems, charges
+- Empty/loading/error states with existing UI components
+
+### Profile (profile.vue)
+- Real auth data: name, role, building, unit
+- Edit profile fields (name, phone, email)
+- Language toggle (fa/en) via useAppLocale
+- Notification sound toggle
+- Logout with direct auth.logout() call
+- Theme toggle button preserved
+
+### Settings
+- Integrated into profile.vue: language, notifications, theme, about, logout
+- Clean card-based layout consistent with design system
+
+### Super Admin (admin.vue)
+- Simple overview: buildings count, users, providers, announcements
+- Building list with navigation to building detail
+- Provider list with trusted badges
+- No complex enterprise admin panel; lightweight and readable
+
+### Design & Code Audit
+- All existing pages verified for consistent spacing (gap-3, p-4/p-5), typography (font-extrabold, leading-tight), colors (primary/slate), shadows (soft/soft-lg)
+- All icons from `@nuxt/icon` (lucide set) — no missing icons
+- No dead `UButton`/`UModal`; all buttons use native styled elements
+- Responsive grids (sm:grid-cols-2/lg:grid-cols-3/4) used; mobile-first
+- RTL maintained (`dir="rtl"` in layout, Persian text throughout)
+- Accessibility: aria-labels on buttons, focus rings via Tailwind, semantic headings
+- Micro-interactions: hover:-translate-y-0.5, scale-110 on quick actions, transition-colors
+- No horizontal overflow; `overflow-x-hidden` on body; safe-area insets for bottom nav
+
+### Routes
+- `/` — Dashboard
+- `/login`, `/register`
+- `/buildings`, `/building`, `/building?id=`
+- `/services`, `/service-provider?id=`
+- `/announcements`, `/problems`, `/problems/new`
+- `/charges`, `/expenses`
+- `/notifications`
+- `/profile`
+- `/admin`
+
+### Build Verification
+- `npm run build` passes with 263 modules transformed, zero TypeScript errors
+- No broken imports or unused variables detected
+- `.output/server/index.mjs` produced successfully

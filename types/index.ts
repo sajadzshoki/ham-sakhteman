@@ -24,13 +24,6 @@ export interface BuildingUnit {
   residentId?: string
 }
 
-export interface NotificationItem {
-  id: string
-  title: string
-  message: string
-  time: string
-  unread: boolean
-}
 
 export interface User {
   id: string
@@ -144,4 +137,14 @@ export interface ServiceProvider {
   trusted?: boolean
   createdAt: string
   createdBy?: string
+}
+
+export interface NotificationItem {
+  id: string
+  title: string
+  message: string
+  time: string
+  unread: boolean
+  link?: string
+  type: 'announcement' | 'problem' | 'charge' | 'service'
 }

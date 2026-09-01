@@ -1,5 +1,8 @@
 <script setup lang="ts">
 const { locale, switchLocale } = useAppLocale()
+const auth = useAuth()
+const { buildings } = useBuildings()
+const currentBuilding = computed(() => buildings.value[0] || null)
 </script>
 
 <template>
@@ -9,12 +12,12 @@ const { locale, switchLocale } = useAppLocale()
     <section class="mb-6">
       <AppCard padding="lg">
         <div class="flex items-center gap-4">
-          <UserAvatar name="علی رضایی" initials="ع ر" avatar-size="lg" />
+          <UserAvatar :name="(auth.user as any)?.name || 'علی رضایی'" :initials="(auth.user as any)?.avatarInitials || 'ع ر'" avatar-size="lg" />
           <div>
-            <h2 class="text-xl font-extrabold text-slate-900 leading-none">علی رضایی</h2>
-            <p class="text-sm text-slate-400 font-medium mt-1">واحد ۴۰۲ — طبقه ۴</p>
+            <h2 class="text-xl font-extrabold text-slate-900 leading-none">{{ (auth.user as any)?.name || 'علی رضایی' }}</h2>
+            <p class="text-sm text-slate-400 font-medium mt-1">{{ currentBuilding ? currentBuilding.address : 'واحد ۴۰۲ — طبقه ۴' }}</p>
             <div class="flex items-center gap-2 mt-2">
-              <span class="text-xs font-bold bg-primary-50 text-primary-700 px-2 py-0.5 rounded-md border border-primary-100">ساکن</span>
+              <span class="text-xs font-bold bg-primary-50 text-primary-700 px-2 py-0.5 rounded-md border border-primary-100">{{ (auth.user as any)?.role === 'manager' ? 'مدیر' : 'ساکن' }}</span>
               <span class="text-xs font-bold bg-amber-50 text-amber-700 px-2 py-0.5 rounded-md border border-amber-100">عضو از ۱۴۰۲</span>
             </div>
           </div>
@@ -69,7 +72,7 @@ const { locale, switchLocale } = useAppLocale()
     </AppCard>
 
     <AppCard padding="md" class="mb-6">
-      <div class="flex items-center gap-3 text-rose-600 hover:text-rose-700 cursor-pointer transition-colors" onclick="document.getElementById('confirm-dialog')?.show?.()">
+      <div class="flex items-center gap-3 text-rose-600 hover:text-rose-700 cursor-pointer transition-colors" @click="auth.logout()">
         <Icon name="i-lucide-log-out" class="w-5 h-5" />
         <span class="text-sm font-extrabold">خروج از حساب</span>
       </div>
