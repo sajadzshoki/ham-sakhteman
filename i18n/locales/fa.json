@@ -1,0 +1,58 @@
+{
+  "nav": {
+    "home": "خانه",
+    "building": "ساختمان",
+    "services": "خدمات",
+    "profile": "حساب من"
+  },
+  "common": {
+    "welcome": "به هم‌ساختمان خوش آمدید",
+    "search": "جستجو",
+    "submit": "ارسال",
+    "cancel": "لغو",
+    "save": "ذخیره",
+    "edit": "ویرایش",
+    "delete": "حذف",
+    "confirm": "تأیید",
+    "close": "بستن",
+    "readMore": "بیشتر",
+    "loading": "در حال بارگذاری...",
+    "error": "خطا",
+    "empty": "موردی یافت نشد",
+    "success": "انجام شد"
+  },
+  "home": {
+    "title": "خانه",
+    "subtitle": "وضعیت ساختمان شما",
+    "latestNews": "آخرین اخبار",
+    "quickActions": "دسترسی سریع",
+    "buildingStatus": "وضعیت ساختمان",
+    "upcomingEvents": "رویدادهای پیش رو",
+    "notifications": "اعلان‌ها",
+    "viewAll": "مشاهده همه"
+  },
+  "building": {
+    "title": "ساختمان",
+    "subtitle": "اطلاعات و مدیریت ساختمان",
+    "units": "واحدها",
+    "residents": "ساکنان",
+    "expenses": "هزینه‌ها",
+    "devices": "تجهیزات",
+    "maintenance": "تعمیرات"
+  },
+  "services": {
+    "title": "خدمات",
+    "subtitle": "درخواست‌ها و خدمات ساختمان",
+    "requestService": "درخواست خدمت",
+    "serviceHistory": "تاریخچه خدمات",
+    "categories": "دسته‌بندی‌ها"
+  },
+  "profile": {
+    "title": "حساب من",
+    "subtitle": "تنظیمات و اطلاعات شخصی",
+    "personalInfo": "اطلاعات شخصی",
+    "security": "امنیت",
+    "notifications": "اعلان‌ها",
+    "language": "زبان"
+  }
+}
