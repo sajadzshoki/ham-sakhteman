@@ -2,7 +2,7 @@
 const { t } = useI18n()
 const auth = useAuth()
 const { buildings } = useBuildings()
-const { getExpensesByBuilding, createExpense, removeExpense } = useFinance()
+const { getExpensesByBuilding, createExpense, loading, loadError, refresh } = useFinance()
 const route = useRoute()
 const bId = computed(() => (route.query.buildingId as string) || buildings.value[0]?.id || 'b-1')
 const list = computed(() => getExpensesByBuilding(bId.value))
@@ -15,10 +15,17 @@ const cat = ref('repair')
 const date = ref('')
 const desc = ref('')
 
-const submit = () => {
+const formError = ref('')
+
+const submit = async () => {
+  formError.value = ''
   if (!title.value.trim() || amount.value <= 0) return
-  createExpense({ buildingId: bId.value, title: title.value, amount: amount.value, category: cat.value as any, date: date.value || new Date().toISOString().slice(0,10), description: desc.value, createdBy: (auth.user as any)?.id || 'system' })
-  title.value = ''; amount.value = 0; cat.value = 'repair'; date.value = ''; desc.value = ''; showForm.value = false
+  try {
+    await createExpense({ buildingId: bId.value, title: title.value, amount: amount.value, category: cat.value as any, date: date.value || new Date().toISOString().slice(0,10), description: desc.value, createdBy: (auth.user as any)?.id || 'system' })
+    title.value = ''; amount.value = 0; cat.value = 'repair'; date.value = ''; desc.value = ''; showForm.value = false
+  } catch (error) {
+    formError.value = apiErrorMessage(error, 'ثبت هزینه ناموفق بود')
+  }
 }
 
 const fmt = (n: number) => n.toLocaleString('fa-IR') + ' تومان'
@@ -40,10 +47,13 @@ const cats: Record<string,string> = { water: 'آب', gas: 'گاز', electricity:
         <AppInput v-model="date" label="تاریخ" placeholder="۱۴۰۵/۰۳/۰۲" />
       </div>
       <AppInput v-model="desc" label="توضیحات" />
+      <p v-if="formError" class="text-xs text-rose-500 font-bold mt-2">{{ formError }}</p>
       <button @click="submit" class="mt-3 h-11 rounded-xl bg-gradient-to-br from-primary-500 to-teal-600 text-white font-extrabold shadow-soft w-full">ثبت هزینه</button>
     </AppCard>
 
-    <div class="flex flex-col gap-3">
+    <LoadingState v-if="loading" />
+    <ErrorState v-else-if="loadError" :message="loadError" :retry="refresh" />
+    <div v-else class="flex flex-col gap-3">
       <AppCard v-for="e in list" :key="e.id" padding="md" hover>
         <div class="flex items-start justify-between gap-3 mb-2">
           <div>

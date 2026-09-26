@@ -1,7 +1,7 @@
 <script setup lang="ts">
 const { t } = useI18n()
 const auth = useAuth()
-const { providers, categories, search, toggleTrusted } = useProviders()
+const { providers, categories, search, toggleTrusted, loading, loadError, refresh } = useProviders()
 const route = useRoute()
 
 const q = ref('')
@@ -33,13 +33,15 @@ const onSearch = () => {}
       </div>
     </section>
 
-    <div v-if="!results.length" class="py-14 text-center">
+    <LoadingState v-if="loading" />
+    <ErrorState v-else-if="loadError" :message="loadError" :retry="refresh" />
+    <div v-else-if="!results.length" class="py-14 text-center">
       <div class="w-14 h-14 rounded-3xl bg-slate-50 text-slate-300 flex items-center justify-center mx-auto mb-3 border border-slate-100"><Icon name="i-lucide-search-x" class="w-7 h-7" /></div>
       <h4 class="text-base font-extrabold text-slate-800">نتیجه‌ای یافت نشد</h4>
       <p class="text-xs text-slate-400 font-medium">دسته‌بندی یا کلمه جستجو را تغییر دهید.</p>
     </div>
 
-    <div class="flex flex-col gap-3">
+    <div v-else class="flex flex-col gap-3">
       <AppCard v-for="p in results" :key="p.id" padding="md" hover>
         <NuxtLink :to="'/service-provider?id=' + p.id" class="flex items-start gap-3">
           <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary-400 to-teal-500 text-white flex items-center justify-center shadow-soft shadow-inner-soft shrink-0">

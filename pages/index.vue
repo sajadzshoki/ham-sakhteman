@@ -53,7 +53,7 @@ const events = [
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />
             وضعیت فعال
           </div>
-          <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight leading-tight mb-1">سلام {{ (auth.user as any)?.name || 'علی' }}</h1>
+          <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight leading-tight mb-1">سلام {{ auth.user?.name || 'علی' }}</h1>
           <p class="text-primary-100 text-sm md:text-base font-medium leading-relaxed">{{ currentBuilding ? currentBuilding.name + ' — ' + currentBuilding.address : 'خوش آمدید به مدیریت ساختمان هم‌ساختمان' }}</p>
         </div>
       </div>

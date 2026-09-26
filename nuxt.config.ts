@@ -70,4 +70,10 @@ export default defineNuxtConfig({
     strict: true,
     typeCheck: true,
   },
+
+  nitro: {
+    externals: {
+      external: ['postgres', 'bcryptjs'],
+    },
+  },
 })

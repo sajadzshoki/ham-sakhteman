@@ -1,22 +1,53 @@
 <script setup lang="ts">
 const auth = useAuth()
-const { buildings } = useBuildings()
-const { providers } = useProviders()
-const { announcements } = useAnnouncements()
-const { problems } = useProblems()
+const overview = ref<{
+  buildings: number
+  users: number
+  providers: number
+  announcements: number
+  problems: number
+  buildingList: Array<{ id: string, name: string, address: string, unitCount: number, residentCount: number }>
+  providerList: Array<{ id: string, name: string, area: string, rating: number, trusted?: boolean }>
+} | null>(null)
+const loading = ref(false)
+const loadError = ref('')
 
 const stats = computed(() => ({
-  buildings: buildings.value.length,
-  providers: providers.value.length,
-  users: 4,
-  announcements: announcements.value.length,
-  problems: problems.value.length,
+  buildings: overview.value?.buildings ?? 0,
+  providers: overview.value?.providers ?? 0,
+  users: overview.value?.users ?? 0,
+  announcements: overview.value?.announcements ?? 0,
+  problems: overview.value?.problems ?? 0,
 }))
+
+const buildings = computed(() => overview.value?.buildingList ?? [])
+const providers = computed(() => overview.value?.providerList ?? [])
+const allowed = computed(() => auth.user?.role === 'admin')
+
+const load = async () => {
+  if (!auth.ready || !allowed.value) return
+  loading.value = true
+  loadError.value = ''
+  try {
+    overview.value = await apiFetch('/api/admin/overview')
+  } catch (error) {
+    loadError.value = apiErrorMessage(error, 'بارگذاری نمای مدیر کل ناموفق بود')
+    overview.value = null
+  } finally {
+    loading.value = false
+  }
+}
+
+watch(() => [auth.ready, auth.user?.role], () => { void load() }, { immediate: true })
 </script>
 
 <template>
   <div>
     <AppHeader title="مدیر کل" subtitle="نمای کلی سیستم" back />
+    <LoadingState v-if="!auth.ready || loading" />
+    <EmptyState v-else-if="!allowed" title="دسترسی ندارید" message="این بخش فقط برای مدیر کل است." />
+    <ErrorState v-else-if="loadError" :message="loadError" :retry="load" />
+    <template v-else>
 
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
       <AppCard padding="md">
@@ -65,5 +96,6 @@ const stats = computed(() => ({
         </NuxtLink>
       </AppCard>
     </div>
+    </template>
   </div>
 </template>

@@ -1,5 +1,7 @@
 # هم‌ساختمان — Ham-Sakhteman
 
+The API, database, and local setup are documented in [BACKEND.md](BACKEND.md). The audit and endpoint contract are in [BACKEND_PLAN.md](BACKEND_PLAN.md).
+
 ## Product Vision
 A modern, Persian-first (RTL) mobile-first building management application that helps residents and building managers communicate, request services, track expenses, and manage building information with calm, trustworthy design.
 

@@ -1,68 +1,98 @@
 import type { User } from '../types'
+import { apiErrorMessage, apiFetch } from '../utils/api'
+
+const legacyKeys = ['hs-user', 'hs-buildings', 'hs-announcements', 'hs-problems', 'hs-charges', 'hs-expenses', 'hs-providers', 'hs-notifications']
 
 export const useAuth = () => {
-  const user = useState<User | null>('auth-user', () => {
-    if (typeof window === 'undefined') return null
-    try {
-      const raw = localStorage.getItem('hs-user')
-      return raw ? JSON.parse(raw) : null
-    } catch { return null }
-  })
+  const user = useState<User | null>('auth-user', () => null)
+  const ready = useState('auth-ready', () => false)
 
-  const isAuthenticated = computed(() => !!user.value)
-  const isManager = computed(() => user.value?.role === 'manager')
-  const isResident = computed(() => user.value?.role === 'resident')
+  const clearLegacy = () => {
+    if (!import.meta.client) return
+    for (const key of legacyKeys) localStorage.removeItem(key)
+  }
 
-  const setUser = (data: User) => {
+  const setUser = (data: User | null) => {
     user.value = data
-    if (typeof window !== 'undefined') localStorage.setItem('hs-user', JSON.stringify(data))
+    clearLegacy()
   }
 
-  const clearUser = () => {
-    user.value = null
-    if (typeof window !== 'undefined') localStorage.removeItem('hs-user')
-  }
+  let sessionPromise: Promise<void> | null = null
 
-  const login = (email: string, password: string): Promise<{ ok: boolean; user?: User; message?: string }> => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        // Mock auth: resident if email contains 'resident', else manager
-        const isMgr = !email.toLowerCase().includes('resident')
-        const u: User = {
-          id: 'u-' + Date.now(),
-          name: isMgr ? 'مدیر ساختمان' : 'ساکن نمونه',
-          email,
-          role: isMgr ? 'manager' : 'resident',
-          avatarInitials: isMgr ? 'م س' : 'س ن',
-          createdAt: new Date().toISOString(),
+  const ensure = () => {
+    if (!import.meta.client) return Promise.resolve()
+    if (!sessionPromise) {
+      sessionPromise = (async () => {
+        clearLegacy()
+        try {
+          const data = await apiFetch<{ user: User }>('/api/auth/me')
+          user.value = data.user
+        } catch {
+          user.value = null
+        } finally {
+          ready.value = true
         }
-        setUser(u)
-        resolve({ ok: true, user: u })
-      }, 600)
-    })
+      })()
+    }
+    return sessionPromise
   }
 
-  const register = (name: string, email: string, password: string): Promise<{ ok: boolean; user?: User; message?: string }> => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const u: User = {
-          id: 'u-' + Date.now(),
-          name,
-          email,
-          role: 'manager', // default to manager for new buildings
-          avatarInitials: name.slice(0, 2),
-          createdAt: new Date().toISOString(),
-        }
-        setUser(u)
-        resolve({ ok: true, user: u })
-      }, 600)
-    })
+  const login = async (email: string, password: string): Promise<{ ok: boolean, user?: User, message?: string }> => {
+    try {
+      const data = await apiFetch<{ user: User }>('/api/auth/login', { method: 'POST', body: { email, password } })
+      setUser(data.user)
+      sessionPromise = Promise.resolve()
+      ready.value = true
+      const { useAppData } = await import('./useAppData')
+      await useAppData().refreshAll()
+      return { ok: true, user: data.user }
+    } catch (error) {
+      return { ok: false, message: apiErrorMessage(error, 'ورود ناموفق بود') }
+    }
   }
 
-  const logout = () => {
-    clearUser()
-    navigateTo('/')
+  const register = async (name: string, email: string, password: string): Promise<{ ok: boolean, user?: User, message?: string }> => {
+    try {
+      const data = await apiFetch<{ user: User }>('/api/auth/register', { method: 'POST', body: { name, email, password } })
+      setUser(data.user)
+      sessionPromise = Promise.resolve()
+      ready.value = true
+      const { useAppData } = await import('./useAppData')
+      await useAppData().refreshAll()
+      return { ok: true, user: data.user }
+    } catch (error) {
+      return { ok: false, message: apiErrorMessage(error, 'تأیید ثبت‌نام ناموفق') }
+    }
   }
 
-  return { user, isAuthenticated, isManager, isResident, setUser, clearUser, login, register, logout }
+  const updateProfile = async (input: { name?: string, email?: string, phone?: string }) => {
+    const data = await apiFetch<{ user: User }>('/api/me', { method: 'PATCH', body: input })
+    setUser(data.user)
+    return data.user
+  }
+
+  const logout = async () => {
+    await $fetch('/api/auth/logout', { method: 'POST' }).catch(() => undefined)
+    setUser(null)
+    sessionPromise = Promise.resolve()
+    ready.value = true
+    const { useAppData } = await import('./useAppData')
+    useAppData().clearDomain()
+    await navigateTo('/')
+  }
+
+  return reactive({
+    get user() { return user.value },
+    set user(value: User | null) { user.value = value },
+    get ready() { return ready.value },
+    get isAuthenticated() { return !!user.value },
+    get isManager() { return user.value?.role === 'manager' },
+    get isResident() { return user.value?.role === 'resident' },
+    ensure,
+    setUser,
+    login,
+    register,
+    updateProfile,
+    logout,
+  })
 }

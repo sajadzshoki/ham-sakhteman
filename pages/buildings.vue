@@ -1,8 +1,8 @@
 <script setup lang="ts">
 const { t } = useI18n()
 const auth = useAuth()
-const currentUser = computed(() => auth.user.value || null)
-const { buildings, createBuilding } = useBuildings()
+const currentUser = computed(() => auth.user || null)
+const { buildings, createBuilding, loading, loadError, refresh, actionError } = useBuildings()
 
 const showCreate = ref(false)
 const name = ref('')
@@ -10,20 +10,24 @@ const address = ref('')
 const desc = ref('')
 const unitsCount = ref(4)
 
-const submit = () => {
+const submit = async () => {
   if (!name.value.trim()) return
-  const b: import("../types").Building = createBuilding({
-    name: name.value,
-    address: address.value,
-    description: desc.value,
-    unitCount: Number(unitsCount.value) || 0,
-    residentCount: 0,
-  })
-  showCreate.value = false
-  name.value = ''
-  address.value = ''
-  desc.value = ''
-  navigateTo('/building?id=' + b.id)
+  try {
+    const b = await createBuilding({
+      name: name.value,
+      address: address.value,
+      description: desc.value,
+      unitCount: Number(unitsCount.value) || 0,
+      residentCount: 0,
+    })
+    showCreate.value = false
+    name.value = ''
+    address.value = ''
+    desc.value = ''
+    navigateTo('/building?id=' + b.id)
+  } catch {
+    // actionError is set by the composable only when it catches; createBuilding throws.
+  }
 }
 </script>
 
@@ -69,7 +73,10 @@ const submit = () => {
       </AppCard>
     </div>
 
-    <div class="flex flex-col gap-3">
+    <p v-if="actionError" class="text-xs text-rose-500 font-bold mb-3">{{ actionError }}</p>
+    <LoadingState v-if="loading" />
+    <ErrorState v-else-if="loadError" :message="loadError" :retry="refresh" />
+    <div v-else class="flex flex-col gap-3">
       <AppCard v-for="b in buildings" :key="b.id" padding="md" hover>
         <NuxtLink :to="'/building?id=' + b.id" class="flex items-start gap-3">
           <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary-400 to-teal-500 text-white flex items-center justify-center shadow-soft shadow-inner-soft shrink-0">

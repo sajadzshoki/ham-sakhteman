@@ -2,7 +2,7 @@
 const { t } = useI18n()
 const auth = useAuth()
 const { buildings } = useBuildings()
-const { getByBuilding, createCharge, updateCharge } = useFinance()
+const { getByBuilding, createCharge, updateCharge, loading, loadError, refresh } = useFinance()
 const route = useRoute()
 const bId = computed(() => (route.query.buildingId as string) || buildings.value[0]?.id || 'b-1')
 const list = computed(() => getByBuilding(bId.value))
@@ -15,10 +15,17 @@ const period = ref('')
 const due = ref('')
 const desc = ref('')
 
-const submit = () => {
+const formError = ref('')
+
+const submit = async () => {
+  formError.value = ''
   if (!title.value.trim() || amount.value <= 0) return
-  createCharge({ buildingId: bId.value, title: title.value, amount: amount.value, period: period.value, dueDate: due.value, description: desc.value, createdBy: (auth.user as any)?.id || 'system' })
-  title.value = ''; amount.value = 0; period.value = ''; due.value = ''; desc.value = ''; showForm.value = false
+  try {
+    await createCharge({ buildingId: bId.value, title: title.value, amount: amount.value, period: period.value, dueDate: due.value, description: desc.value, createdBy: (auth.user as any)?.id || 'system' })
+    title.value = ''; amount.value = 0; period.value = ''; due.value = ''; desc.value = ''; showForm.value = false
+  } catch (error) {
+    formError.value = apiErrorMessage(error, 'ثبت شارژ ناموفق بود')
+  }
 }
 
 const fmt = (n: number) => n.toLocaleString('fa-IR') + ' تومان'
@@ -41,10 +48,13 @@ const fmt = (n: number) => n.toLocaleString('fa-IR') + ' تومان'
         <AppInput v-model="due" label="تاریخ سررسید" placeholder="۱۴۰۵/۰۴/۰۵" />
       </div>
       <AppInput v-model="desc" label="توضیحات" placeholder="اختیاری" />
+      <p v-if="formError" class="text-xs text-rose-500 font-bold mt-2">{{ formError }}</p>
       <button @click="submit" class="mt-3 h-11 rounded-xl bg-gradient-to-br from-primary-500 to-teal-600 text-white font-extrabold shadow-soft w-full">ثبت شارژ</button>
     </AppCard>
 
-    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+    <LoadingState v-if="loading" />
+    <ErrorState v-else-if="loadError" :message="loadError" :retry="refresh" />
+    <div v-else class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
       <AppCard v-for="c in list" :key="c.id" padding="md" hover>
         <div class="flex items-start justify-between gap-2 mb-2">
           <h4 class="text-base font-extrabold text-slate-900 leading-snug">{{ c.title }}</h4>

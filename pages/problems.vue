@@ -2,7 +2,7 @@
 const { t } = useI18n()
 const auth = useAuth()
 const { buildings } = useBuildings()
-const { getByBuilding, getById, create, update, categoryLabels, statusLabels } = useProblems()
+const { getByBuilding, getById, create, update, categoryLabels, statusLabels, loading, loadError, refresh } = useProblems()
 
 const route = useRoute()
 const id = computed(() => route.query.id as string)
@@ -42,7 +42,9 @@ const updateStatus = (reportId: string, status: 'new' | 'in-progress' | 'resolve
       <NuxtLink to="/problems/new" class="px-4 py-2 rounded-xl bg-gradient-to-br from-primary-500 to-teal-600 text-white text-sm font-extrabold shadow-soft">+ گزارش جدید</NuxtLink>
     </div>
 
-    <div v-if="detail" class="mb-6">
+    <LoadingState v-if="loading" />
+    <ErrorState v-else-if="loadError" :message="loadError" :retry="refresh" />
+    <div v-else-if="detail" class="mb-6">
       <AppCard padding="lg">
         <button @click="$router.push('/problems')" class="text-xs text-primary-600 font-bold mb-2">← بازگشت به لیست</button>
         <div class="flex items-center gap-2 mb-2">

@@ -1,49 +1,56 @@
 import type { Announcement } from '../types'
+import { apiErrorMessage, apiFetch } from '../utils/api'
 
 export const useAnnouncements = () => {
-  const auth = useAuth()
-  const { buildings, getBuilding } = useBuildings()
+  const announcements = useState<Announcement[]>('hs-announcements', () => [])
+  const loading = useState('hs-ann-loading', () => false)
+  const loadError = useState<string | null>('hs-ann-error', () => null)
 
-  const announcements = useState<Announcement[]>('hs-announcements', () => {
-    if (typeof window === 'undefined') return []
-    try { const r = localStorage.getItem('hs-announcements'); return r ? JSON.parse(r) : [] } catch { return [] }
-  })
-
-  const save = () => { if (typeof window !== 'undefined') localStorage.setItem('hs-announcements', JSON.stringify(announcements.value)) }
-
-  const getByBuilding = (buildingId: string) => announcements.value.filter(a => a.buildingId === buildingId).sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-  const getById = (id: string) => announcements.value.find(a => a.id === id) || null
-
-  const create = (data: Omit<Announcement, 'id' | 'createdAt'>) => {
-    const a: Announcement = { ...data, id: 'ann-' + Date.now(), createdAt: new Date().toISOString() }
-    announcements.value.push(a)
-    save()
-    return a
-  }
-
-  const update = (id: string, updates: Partial<Announcement>) => {
-    const idx = announcements.value.findIndex(a => a.id === id)
-    if (idx >= 0) { announcements.value[idx] = { ...announcements.value[idx], ...updates }; save() }
-  }
-
-  const remove = (id: string) => {
-    announcements.value = announcements.value.filter(a => a.id !== id)
-    save()
-  }
-
-  // Seed mock if empty
-  if (announcements.value.length === 0 && typeof window !== 'undefined') {
-    const b = getByBuilding('b-1')
-    const mockB = buildings.value.find(x => x.id === 'b-1')
-    if (mockB) {
-      announcements.value.push({
-        id: 'ann-1', buildingId: 'b-1', title: 'تعمیر آسانسور', description: 'تعمیر آسانسور طبقه ۵ در ساعت ۱۰ صبح انجام می‌شود.', importance: 'important', createdBy: 'u-102', createdAt: new Date(Date.now() - 86400000 * 2).toISOString()
-      }, {
-        id: 'ann-2', buildingId: 'b-1', title: 'اجتماع ساکنان', description: 'اجتماع هفتگی در سالن اجتماعات در ساعت ۱۸.', importance: 'normal', createdBy: 'u-102', createdAt: new Date(Date.now() - 86400000 * 5).toISOString()
-      })
-      save()
+  const refresh = async () => {
+    const { buildings } = useBuildings()
+    if (!buildings.value.length) {
+      announcements.value = []
+      return
+    }
+    loading.value = true
+    loadError.value = null
+    try {
+      const groups = await Promise.all(buildings.value.map((building) => apiFetch<Announcement[]>(`/api/buildings/${building.id}/announcements`)))
+      announcements.value = groups.flat()
+    } catch (error) {
+      loadError.value = apiErrorMessage(error, 'بارگذاری اطلاعیه‌ها ناموفق بود')
+      announcements.value = []
+    } finally {
+      loading.value = false
     }
   }
 
-  return { announcements, getByBuilding, getById, create, update, remove, save }
+  const clear = () => { announcements.value = [] }
+
+  const getByBuilding = (buildingId: string) => announcements.value
+    .filter((item) => item.buildingId === buildingId)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+
+  const getById = (id: string) => announcements.value.find((item) => item.id === id) || null
+
+  const create = async (data: Omit<Announcement, 'id' | 'createdAt'>) => {
+    const created = await apiFetch<Announcement>(`/api/buildings/${data.buildingId}/announcements`, { method: 'POST', body: data })
+    announcements.value = [created, ...announcements.value.filter((item) => item.id !== created.id)]
+    return created
+  }
+
+  const update = async (id: string, updates: Partial<Announcement>) => {
+    const current = getById(id)
+    if (!current) return
+    const updated = await apiFetch<Announcement>(`/api/announcements/${id}`, { method: 'PATCH', body: updates })
+    announcements.value = announcements.value.map((item) => item.id === id ? updated : item)
+    return updated
+  }
+
+  const remove = async (id: string) => {
+    await apiFetch(`/api/announcements/${id}`, { method: 'DELETE' })
+    announcements.value = announcements.value.filter((item) => item.id !== id)
+  }
+
+  return { announcements, loading, loadError, getByBuilding, getById, create, update, remove, refresh, clear, save: refresh }
 }

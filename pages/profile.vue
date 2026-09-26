@@ -3,6 +3,49 @@ const { locale, switchLocale } = useAppLocale()
 const auth = useAuth()
 const { buildings } = useBuildings()
 const currentBuilding = computed(() => buildings.value[0] || null)
+const givenName = ref('')
+const familyName = ref('')
+const phone = ref('')
+const email = ref('')
+const saving = ref(false)
+const saveError = ref('')
+
+const roleLabel = computed(() => {
+  const role = auth.user?.role
+  if (role === 'admin') return 'مدیر کل'
+  if (role === 'manager') return 'مدیر'
+  return 'ساکن'
+})
+
+const fill = () => {
+  const current = auth.user
+  if (!current) return
+  const parts = current.name.trim().split(/\s+/)
+  givenName.value = parts[0] || ''
+  familyName.value = parts.slice(1).join(' ')
+  phone.value = current.phone || ''
+  email.value = current.email || ''
+}
+
+watch(() => auth.user, fill, { immediate: true })
+
+const save = async () => {
+  saveError.value = ''
+  saving.value = true
+  try {
+    const name = [givenName.value.trim(), familyName.value.trim()].filter(Boolean).join(' ')
+    await auth.updateProfile({ name, phone: phone.value, email: email.value })
+  } catch (error) {
+    saveError.value = apiErrorMessage(error, 'ذخیره ناموفق بود')
+  } finally {
+    saving.value = false
+  }
+}
+
+const cancel = () => {
+  fill()
+  saveError.value = ''
+}
 </script>
 
 <template>
@@ -12,12 +55,12 @@ const currentBuilding = computed(() => buildings.value[0] || null)
     <section class="mb-6">
       <AppCard padding="lg">
         <div class="flex items-center gap-4">
-          <UserAvatar :name="(auth.user as any)?.name || 'علی رضایی'" :initials="(auth.user as any)?.avatarInitials || 'ع ر'" avatar-size="lg" />
+          <UserAvatar :name="auth.user?.name || 'کاربر'" :initials="auth.user?.avatarInitials || 'ک'" avatar-size="lg" />
           <div>
-            <h2 class="text-xl font-extrabold text-slate-900 leading-none">{{ (auth.user as any)?.name || 'علی رضایی' }}</h2>
-            <p class="text-sm text-slate-400 font-medium mt-1">{{ currentBuilding ? currentBuilding.address : 'واحد ۴۰۲ — طبقه ۴' }}</p>
+            <h2 class="text-xl font-extrabold text-slate-900 leading-none">{{ auth.user?.name || 'کاربر' }}</h2>
+            <p class="text-sm text-slate-400 font-medium mt-1">{{ currentBuilding ? currentBuilding.address : 'واحدی ثبت نشده' }}</p>
             <div class="flex items-center gap-2 mt-2">
-              <span class="text-xs font-bold bg-primary-50 text-primary-700 px-2 py-0.5 rounded-md border border-primary-100">{{ (auth.user as any)?.role === 'manager' ? 'مدیر' : 'ساکن' }}</span>
+              <span class="text-xs font-bold bg-primary-50 text-primary-700 px-2 py-0.5 rounded-md border border-primary-100">{{ roleLabel }}</span>
               <span class="text-xs font-bold bg-amber-50 text-amber-700 px-2 py-0.5 rounded-md border border-amber-100">عضو از ۱۴۰۲</span>
             </div>
           </div>
@@ -28,14 +71,15 @@ const currentBuilding = computed(() => buildings.value[0] || null)
     <PageHeader title="اطلاعات شخصی" subtitle="ویرایش پروفایل" />
     <AppCard padding="md" class="mb-6">
       <div class="grid md:grid-cols-2 gap-3">
-        <AppInput label="نام" model-value="علی" />
-        <AppInput label="نام خانوادگی" model-value="رضایی" />
-        <AppInput label="شماره تماس" model-value="۰۹۱۲۱۲۳۴۵۶۷" type="tel" />
-        <AppInput label="ایمیل" model-value="ali@example.com" type="email" />
+        <AppInput label="نام" v-model="givenName" />
+        <AppInput label="نام خانوادگی" v-model="familyName" />
+        <AppInput label="شماره تماس" v-model="phone" type="tel" />
+        <AppInput label="ایمیل" v-model="email" type="email" />
       </div>
+      <p v-if="saveError" class="text-xs text-rose-500 font-bold mt-2">{{ saveError }}</p>
       <div class="mt-3 flex justify-end gap-2">
-        <button class="h-11 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-sm transition-colors">لغو</button>
-        <button class="h-11 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-extrabold shadow-soft text-sm transition-colors">ذخیره تغییرات</button>
+        <button type="button" @click="cancel" class="h-11 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-sm transition-colors">لغو</button>
+        <button type="button" @click="save" :disabled="saving" class="h-11 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-extrabold shadow-soft text-sm transition-colors disabled:opacity-60">{{ saving ? 'در حال ذخیره...' : 'ذخیره تغییرات' }}</button>
       </div>
     </AppCard>
 

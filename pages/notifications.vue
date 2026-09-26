@@ -1,7 +1,7 @@
 <script setup lang="ts">
 const { t } = useI18n()
 const auth = useAuth()
-const { notifications, refresh, markRead, markAllRead } = useNotifications()
+const { notifications, markRead, markAllRead, loading, loadError, refresh } = useNotifications()
 
 const unreadCount = computed(() => notifications.value.filter(n => n.unread).length)
 const byType = computed(() => ({ announcement: notifications.value.filter(n => n.type === 'announcement'), problem: notifications.value.filter(n => n.type === 'problem'), charge: notifications.value.filter(n => n.type === 'charge'), service: notifications.value.filter(n => n.type === 'service') }))
@@ -11,6 +11,9 @@ const byType = computed(() => ({ announcement: notifications.value.filter(n => n
   <div>
     <AppHeader title="اعلان‌ها" subtitle="اطلاعیه‌ها و هشدارها" back />
 
+    <LoadingState v-if="loading" />
+    <ErrorState v-else-if="loadError" :message="loadError" :retry="refresh" />
+    <template v-else>
     <div class="flex items-center justify-between mb-3">
       <div class="flex items-center gap-2">
         <span v-if="unreadCount" class="w-6 h-6 rounded-full bg-rose-500 text-white text-[10px] font-extrabold flex items-center justify-center shadow-soft">{{ unreadCount }}</span>
@@ -49,5 +52,6 @@ const byType = computed(() => ({ announcement: notifications.value.filter(n => n
     <div v-if="notifications.length === 0" class="pt-10">
       <EmptyState title="اعلانی ندارید" message="هنوز هیچ اطلاعیه‌ای ثبت نشده است." />
     </div>
+    </template>
   </div>
 </template>

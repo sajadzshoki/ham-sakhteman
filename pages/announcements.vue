@@ -2,7 +2,7 @@
 const { t } = useI18n()
 const auth = useAuth()
 const { buildings } = useBuildings()
-const { getByBuilding, getById, create, update, remove } = useAnnouncements()
+const { getByBuilding, getById, create, remove, loading, loadError, refresh } = useAnnouncements()
 
 const route = useRoute()
 const id = computed(() => route.query.id as string)
@@ -16,10 +16,17 @@ const title = ref('')
 const desc = ref('')
 const importance = ref<'normal' | 'important'>('normal')
 
-const submit = () => {
+const formError = ref('')
+
+const submit = async () => {
+  formError.value = ''
   if (!title.value.trim()) return
-  create({ buildingId: currentBuildingId.value, title: title.value, description: desc.value, importance: importance.value, imageUrl: '', createdBy: (auth.user as any)?.id || 'system' })
-  title.value = ''; desc.value = ''; importance.value = 'normal'; showForm.value = false
+  try {
+    await create({ buildingId: currentBuildingId.value, title: title.value, description: desc.value, importance: importance.value, imageUrl: '', createdBy: (auth.user as any)?.id || 'system' })
+    title.value = ''; desc.value = ''; importance.value = 'normal'; showForm.value = false
+  } catch (error) {
+    formError.value = apiErrorMessage(error, 'ذخیره اطلاعیه ناموفق بود')
+  }
 }
 
 const deleteAnn = (annId: string) => {
@@ -41,11 +48,14 @@ const deleteAnn = (annId: string) => {
         <AppInput v-model="title" label="عنوان" placeholder="عنوان اطلاعیه" />
         <AppInput v-model="desc" label="توضیحات" placeholder="متن اطلاعیه" />
         <AppSelect label="اهمیت" v-model="importance" :options="[{value:'normal',label:'عادی'},{value:'important',label:'مهم'}]" />
+        <p v-if="formError" class="text-xs text-rose-500 font-bold">{{ formError }}</p>
         <button @click="submit" class="h-11 rounded-xl bg-gradient-to-br from-primary-500 to-teal-600 text-white font-extrabold shadow-soft">ذخیره</button>
       </div>
     </AppCard>
 
-    <div v-if="detail" class="mb-6">
+    <LoadingState v-if="loading" />
+    <ErrorState v-else-if="loadError" :message="loadError" :retry="refresh" />
+    <div v-else-if="detail" class="mb-6">
       <AppCard padding="lg">
         <button @click="$router.push('/announcements')" class="text-xs text-primary-600 font-bold mb-2">← بازگشت به لیست</button>
         <div class="flex items-center gap-2 mb-2">

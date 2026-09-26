@@ -3,8 +3,8 @@ import type { Building } from '../types'
 
 const route = useRoute()
 const auth = useAuth()
-const currentUser = computed(() => auth.user.value || null)
-const { getBuilding, units, members, invitations, invite, addUnit, removeUnit, addMember, removeMember, updateBuilding } = useBuildings()
+const currentUser = computed(() => auth.user || null)
+const { getBuilding, units, members, invitations, invite, addUnit, removeUnit, updateBuilding, actionError } = useBuildings()
 
 const buildingId = computed<string>(() => String(route.query.id || ''))
 const b = computed<import('../types').Building | null>(() => getBuilding(buildingId.value))
@@ -24,9 +24,14 @@ watch(b, (val) => {
   if (val) { editName.value = val.name; editAddr.value = val.address; editDesc.value = val.description || '' }
 }, { immediate: true })
 
-const saveEdit = () => {
-  if (b.value) updateBuilding(b.value.id, { name: editName.value, address: editAddr.value, description: editDesc.value })
-  showEdit.value = false
+const saveEdit = async () => {
+  if (!b.value) return
+  try {
+    await updateBuilding(b.value.id, { name: editName.value, address: editAddr.value, description: editDesc.value })
+    showEdit.value = false
+  } catch {
+    // actionError is rendered below
+  }
 }
 
 const copyCode = async () => {
@@ -41,6 +46,7 @@ const shareLink = async () => {
 <template>
   <div>
     <AppHeader title="ساختمان" subtitle="مدیریت ساختمان" back />
+    <p v-if="actionError" class="text-xs text-rose-500 font-bold mb-3">{{ actionError }}</p>
 
     <AppCard v-if="b" padding="lg" class="mb-6">
       <div class="flex items-start justify-between gap-3 mb-4">
