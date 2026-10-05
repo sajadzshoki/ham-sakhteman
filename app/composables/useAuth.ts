@@ -7,18 +7,21 @@ import type { AuthMethod, AuthUser, BuildingRole } from '~/types'
  */
 export function useAuth() {
   const refs = useStoreRefs()
+  const store = useAppStore()
   const session = refs.user
   const users = refs.users
   const pendingJoinCode = refs.pendingJoin
 
   const user = computed(() => session.value)
   const isAuthenticated = computed(() => session.value !== null)
-  const isManager = computed(() => session.value?.role === 'manager')
+  const isManager = computed(() => store.isBuildingManager(session.value))
   const isSuperAdmin = computed(() => session.value?.role === 'superadmin')
 
   function login(phone: string, password: string): { ok: boolean; error?: 'invalid' } {
+    const normalizedPhone = normalizePhone(phone)
+    if (!password) return { ok: false, error: 'invalid' }
     const found = users.value.find(
-      item => item.phone === phone.trim() && (item.password ?? '') === password,
+      item => normalizePhone(item.phone) === normalizedPhone && (item.password ?? '') === password,
     )
     if (!found) return { ok: false, error: 'invalid' }
     session.value = found
@@ -31,8 +34,8 @@ export function useAuth() {
     password: string
     role: BuildingRole
   }): { ok: boolean; error?: 'duplicate' } {
-    const phone = input.phone.trim()
-    if (users.value.some(item => item.phone === phone)) {
+    const phone = normalizePhone(input.phone)
+    if (users.value.some(item => normalizePhone(item.phone) === phone)) {
       return { ok: false, error: 'duplicate' }
     }
     const newUser: AuthUser = {
@@ -68,7 +71,7 @@ export function useAuth() {
     const store = useAppStore()
     const building = store.buildingOfUser(session.value)
     if (!building) {
-      return session.value?.role === 'manager' ? '/onboarding' : '/join'
+      return store.isBuildingManager(session.value) ? '/onboarding' : '/join'
     }
     return '/'
   }

@@ -30,7 +30,10 @@ onMounted(() => {
   date.value = dateInputValue(new Date())
 })
 
+const saving = ref(false)
+
 function submit() {
+  if (saving.value) return
   titleError.value = title.value.trim() ? '' : 'عنوان هزینه را وارد کنید.'
 
   const parsedAmount = parseAmount(amount.value)
@@ -42,6 +45,8 @@ function submit() {
 
   if (titleError.value || amountError.value || categoryError.value || dateError.value) return
   if (!building.value || !user.value || parsedAmount === null || !isoDate || !category.value) return
+
+  saving.value = true
 
   const receiptKey = resolveImagePayload(receipt.value)
   store.createExpense(
@@ -98,7 +103,7 @@ function onCancel() {
           />
         </div>
 
-        <UFormField label="دسته‌بندی" size="lg" :error="categoryError" required class="w-full">
+        <UFormField label="دسته‌بندی" size="lg" :error="categoryError || undefined" required class="w-full">
           <div class="grid w-full grid-cols-3 gap-2 sm:grid-cols-4">
             <button
               v-for="option in expenseCategories"
@@ -136,6 +141,7 @@ function onCancel() {
             block
             icon="i-lucide-plus"
             label="ثبت هزینه"
+            :loading="saving"
           />
           <UButton
             type="button"

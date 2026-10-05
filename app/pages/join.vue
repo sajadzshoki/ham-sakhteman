@@ -28,25 +28,43 @@ function checkCode() {
   joinError.value = ''
   previewInvitation.value = null
 
-  if (code.value.trim().length < 6) {
+  if (normalizeInviteCode(code.value).length !== 6) {
     codeError.value = 'کد دعوت ۶ کاراکتری را وارد کنید.'
     return
   }
 
   const invitation = store.findInvitation(code.value)
-  if (!invitation || store.invitationDisplayStatus(invitation) !== 'active') {
-    codeError.value = 'کد دعوت معتبر نیست یا منقضی شده است. از مدیر ساختمان کد جدید بگیرید.'
+  if (!invitation) {
+    codeError.value = 'کد دعوت معتبر نیست. از مدیر ساختمان کد جدید بگیرید.'
     return
   }
+  const status = store.invitationDisplayStatus(invitation)
+  if (status === 'used') {
+    codeError.value = 'این کد دعوت قبلاً استفاده شده است.'
+    return
+  }
+  if (status === 'expired') {
+    codeError.value = 'مهلت این کد دعوت تمام شده است. از مدیر ساختمان کد جدید بگیرید.'
+    return
+  }
+  if (status !== 'active') {
+    codeError.value = 'کد دعوت معتبر نیست. از مدیر ساختمان کد جدید بگیرید.'
+    return
+  }
+  code.value = invitation.code
   previewInvitation.value = invitation
 }
 
+const joining = ref(false)
+
 function join() {
   joinError.value = ''
-  if (!user.value || !previewInvitation.value) return
+  if (joining.value || !user.value || !previewInvitation.value) return
+  joining.value = true
 
   const result = store.joinWithInvitation(previewInvitation.value.code, user.value)
   if (!result.ok) {
+    joining.value = false
     const messages = {
       invalid: 'کد دعوت معتبر نیست.',
       used: 'این کد دعوت قبلاً استفاده شده است.',
@@ -62,7 +80,7 @@ function join() {
 }
 
 // اگر از لینک دعوت آمده باشد، خودکار جستجو کن
-if (code.value.length === 6 && !existingMembership.value) {
+if (normalizeInviteCode(code.value).length === 6 && !existingMembership.value) {
   checkCode()
 }
 </script>
@@ -149,7 +167,7 @@ if (code.value.length === 6 && !existingMembership.value) {
           {{ joinError }}
         </p>
 
-        <UButton color="primary" variant="solid" size="lg" block class="mt-3" label="پیوستن به این ساختمان" icon="i-lucide-log-in" @click="join" />
+        <UButton color="primary" variant="solid" size="lg" block class="mt-3" label="پیوستن به این ساختمان" icon="i-lucide-log-in" :loading="joining" @click="join" />
       </AppCard>
     </template>
   </div>

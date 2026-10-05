@@ -45,6 +45,7 @@ const importanceOptions: { id: AnnouncementImportance; label: string; hint: stri
 ]
 
 function submit() {
+  if (props.busy) return
   titleError.value = title.value.trim() ? '' : 'عنوان اطلاعیه را وارد کنید.'
   bodyError.value = body.value.trim() ? '' : 'متن اطلاعیه را وارد کنید.'
   if (titleError.value || bodyError.value) return

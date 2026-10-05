@@ -20,9 +20,11 @@ const paidAt = ref('')
 const note = ref('')
 const amountError = ref('')
 const dateError = ref('')
+const saving = ref(false)
 
 watch(open, (value) => {
   if (!value) return
+  saving.value = false
   amount.value = String(props.charge.amount)
   paidAt.value = dateInputValue(new Date())
   note.value = ''
@@ -31,6 +33,7 @@ watch(open, (value) => {
 })
 
 function submit() {
+  if (saving.value) return
   amountError.value = ''
   dateError.value = ''
 
@@ -47,6 +50,7 @@ function submit() {
   }
 
   if (!user.value) return
+  saving.value = true
   const payment = store.recordPayment(
     props.charge,
     props.member,
@@ -55,6 +59,7 @@ function submit() {
   )
 
   if (!payment) {
+    saving.value = false
     toast.add({ title: 'برای این عضو قبلاً پرداخت ثبت شده است', color: 'error' })
     return
   }
@@ -97,7 +102,7 @@ function submit() {
           placeholder="اختیاری — مثلاً: کارت به کارت"
         />
         <div class="flex w-full flex-row-reverse gap-2">
-          <UButton type="submit" color="primary" variant="solid" size="md" block label="ثبت پرداخت" icon="i-lucide-badge-check" />
+          <UButton type="submit" color="primary" variant="solid" size="md" block label="ثبت پرداخت" icon="i-lucide-badge-check" :loading="saving" />
           <UButton type="button" color="neutral" variant="soft" size="md" block label="انصراف" @click="open = false" />
         </div>
       </form>

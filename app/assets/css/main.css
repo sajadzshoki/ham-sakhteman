@@ -48,6 +48,14 @@
   .scrollbar-none::-webkit-scrollbar {
     display: none;
   }
+
+  /* متن کم‌رنگ در حالت روشن یک پله تیره‌تر می‌شود تا روی سطح سفید خوانا بماند */
+  html:not(.dark) .text-slate-300 {
+    color: var(--color-slate-400);
+  }
+  html:not(.dark) .text-slate-400 {
+    color: var(--color-slate-500);
+  }
 }
 
 /* ریزتعامل ظریف و یکدست: فشرده‌شدن نامحسوس هنگام فشردن دکمه‌ها و پیوندها */

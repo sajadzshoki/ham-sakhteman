@@ -13,8 +13,11 @@ useSeoMeta({
 
 const building = computed(() => store.buildingOfUser(user.value))
 
+const saving = ref(false)
+
 function onSubmit(payload: { title: string; body: string; importance: AnnouncementImportance; image: string | undefined }) {
-  if (!building.value || !user.value) return
+  if (saving.value || !building.value || !user.value) return
+  saving.value = true
   const imageKey = resolveImagePayload(payload.image)
   const announcement = store.createAnnouncement(
     building.value.id,
@@ -34,7 +37,7 @@ function onCancel() {
   <div class="space-y-5">
     <PageHeader title="اطلاعیه جدید" description="ساکنین بلافاصله این اطلاعیه را مشاهده می‌کنند" />
     <AppCard>
-      <AnnouncementForm submit-label="ثبت اطلاعیه" @submit="onSubmit" @cancel="onCancel" />
+      <AnnouncementForm submit-label="ثبت اطلاعیه" :busy="saving" @submit="onSubmit" @cancel="onCancel" />
     </AppCard>
   </div>
 </template>

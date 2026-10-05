@@ -23,13 +23,17 @@ const categoryError = ref('')
 const titleError = ref('')
 const descriptionError = ref('')
 
+const saving = ref(false)
+
 function submit() {
+  if (saving.value) return
   categoryError.value = category.value ? '' : 'دسته‌بندی مشکل را انتخاب کنید.'
   titleError.value = title.value.trim() ? '' : 'عنوان مشکل را وارد کنید.'
   descriptionError.value = description.value.trim() ? '' : 'توضیح مشکل را وارد کنید.'
   if (categoryError.value || titleError.value || descriptionError.value) return
   if (!building.value || !user.value || !category.value) return
 
+  saving.value = true
   const imageKey = resolveImagePayload(image.value)
   const report = store.createProblemReport(
     building.value.id,
@@ -52,7 +56,7 @@ function onCancel() {
     <AppCard>
       <form class="space-y-5" novalidate @submit.prevent="submit">
         <!-- دسته‌بندی -->
-        <UFormField label="دسته‌بندی مشکل" size="lg" :error="categoryError" required class="w-full">
+        <UFormField label="دسته‌بندی مشکل" size="lg" :error="categoryError || undefined" required class="w-full">
           <div class="grid w-full grid-cols-3 gap-2 sm:grid-cols-4">
             <button
               v-for="option in problemCategories"
@@ -101,6 +105,7 @@ function onCancel() {
             block
             icon="i-lucide-send"
             label="ثبت گزارش"
+            :loading="saving"
           />
           <UButton
             type="button"

@@ -2,7 +2,7 @@
 const router = useRouter()
 const { t } = useI18n()
 const toast = useToast()
-const { user, isAuthenticated, isSuperAdmin } = useAuth()
+const { user, isAuthenticated, isSuperAdmin, isManager } = useAuth()
 const store = useAppStore()
 
 useSeoMeta({
@@ -66,7 +66,8 @@ const menuItems = computed<AccountMenuItem[]>(() => [
   { label: 'تنظیمات', icon: 'i-lucide-settings', tint: 'bg-slate-100 text-slate-600 dark:bg-slate-400/10 dark:text-slate-300', to: '/settings' },
 ].filter((item) => {
   if (item.requiresSuperAdmin && !isSuperAdmin.value) return false
-  if (item.requiresManager && (user.value?.role !== 'manager' || !building.value)) return false
+  if (isSuperAdmin.value && item.to.startsWith('/building')) return false
+  if (item.requiresManager && (!isManager.value || !building.value)) return false
   if (item.requiresBuilding && !building.value) return false
   return true
 }))
@@ -117,7 +118,7 @@ const menuItems = computed<AccountMenuItem[]>(() => [
                 />
               </div>
               <div class="mt-2 flex flex-wrap items-center gap-2">
-                <StatusBadge :status="user.role" />
+                <StatusBadge :status="membership?.role ?? user.role" />
                 <span
                   v-if="building"
                   class="flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-300"

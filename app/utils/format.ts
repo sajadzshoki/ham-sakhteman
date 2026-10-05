@@ -61,14 +61,14 @@ export function formatRelative(date: Date | string): string {
 
 /** فرمت شماره موبایل برای نمایش؛ مثال: ۰۹۱۲ ۳۴۵ ۶۷۸۹ */
 export function formatPhone(phone: string): string {
-  const digits = phone.replace(/\D/g, '')
+  const digits = toLatinDigits(phone).replace(/\D/g, '')
   const parts = [digits.slice(0, 4), digits.slice(4, 7), digits.slice(7)]
   return toPersianDigits(parts.filter(Boolean).join(' '))
 }
 
-/** لینک تماس (`tel:`) از روی شماره؛ کاراکترهای غیرعددی حذف می‌شوند */
+/** لینک تماس (`tel:`) از روی شماره؛ ارقام فارسی به لاتین تبدیل می‌شوند */
 export function telHref(phone: string): string {
-  return `tel:${phone.replace(/[^\d+]/g, '')}`
+  return `tel:${toLatinDigits(phone).replace(/[^\d+]/g, '')}`
 }
 
 /** فرمت امتیاز با یک رقم اعشار و ممیز فارسی؛ مثال: ۴٫۸ */
@@ -92,6 +92,20 @@ export function parseAmount(value: string): number | null {
   if (!normalized) return null
   const amount = Number(normalized)
   if (!Number.isFinite(amount) || amount <= 0) return null
+  return amount
+}
+
+/**
+ * تبدیل ورودی متنی به عدد صحیح؛ ارقام فارسی/عربی و جداکننده‌ها را تحمل می‌کند.
+ * خارج از بازه یا ورودی خالی `null` برمی‌گرداند.
+ */
+export function parseInteger(value: string, bounds?: { min?: number, max?: number }): number | null {
+  const normalized = toLatinDigits(value).replace(/[^\d]/g, '')
+  if (!normalized) return null
+  const amount = Number(normalized)
+  if (!Number.isInteger(amount)) return null
+  if (bounds?.min !== undefined && amount < bounds.min) return null
+  if (bounds?.max !== undefined && amount > bounds.max) return null
   return amount
 }
 

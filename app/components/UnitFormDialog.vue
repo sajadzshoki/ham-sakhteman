@@ -39,14 +39,14 @@ function submit() {
   numberError.value = ''
   floorError.value = ''
 
-  const unitNumber = Number.parseInt(number.value, 10)
-  const unitFloor = Number.parseInt(floor.value, 10)
+  const unitNumber = parseInteger(number.value, { min: 1 })
+  const unitFloor = parseInteger(floor.value, { min: 1 })
 
-  if (!number.value || Number.isNaN(unitNumber) || unitNumber <= 0) {
+  if (unitNumber === null) {
     numberError.value = 'شماره واحد را با عدد معتبر وارد کنید.'
     return
   }
-  if (!floor.value || Number.isNaN(unitFloor) || unitFloor <= 0) {
+  if (unitFloor === null) {
     floorError.value = 'طبقه را با عدد معتبر وارد کنید.'
     return
   }
@@ -82,7 +82,9 @@ function submit() {
             v-model="number"
             label="شماره واحد"
             required
-            type="number"
+            type="text"
+            inputmode="numeric"
+            dir="ltr"
             placeholder="مثلاً: ۵"
             :error="numberError"
             @update:model-value="numberError = ''"
@@ -91,7 +93,9 @@ function submit() {
             v-model="floor"
             label="طبقه"
             required
-            type="number"
+            type="text"
+            inputmode="numeric"
+            dir="ltr"
             placeholder="مثلاً: ۳"
             :error="floorError"
             @update:model-value="floorError = ''"

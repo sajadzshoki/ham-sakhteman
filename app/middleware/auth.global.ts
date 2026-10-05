@@ -1,3 +1,15 @@
+/** مسیرهایی که سوپرادمین می‌تواند ببیند؛ بقیه به مدیریت کل برمی‌گردند */
+function isSuperAdminPath(path: string): boolean {
+  return path === '/admin'
+    || path.startsWith('/admin/')
+    || path === '/account'
+    || path === '/settings'
+    || path === '/notifications'
+    || path.startsWith('/notifications/')
+    || path === '/auth/login'
+    || path === '/auth/register'
+}
+
 export default defineNuxtRouteMiddleware((to) => {
   const store = useAppStore()
   store.ensureSeeded()
@@ -9,15 +21,15 @@ export default defineNuxtRouteMiddleware((to) => {
     return navigateTo(user.value.role === 'superadmin' ? '/admin' : '/')
   }
 
-  // سوپرادمین به ساختمان نمی‌پیوندد؛ خانه و پیوستن او را به مدیریت کل می‌برد
-  if (user.value?.role === 'superadmin' && (to.path === '/' || to.path === '/join')) {
+  // سوپرادمین به ساختمان نمی‌پیوندد و مسیرهای ساختمان‌محور را نمی‌بیند
+  if (user.value?.role === 'superadmin' && !isSuperAdminPath(to.path)) {
     return navigateTo('/admin')
   }
 
   // آنبردینگ: فقط مدیرِ بدون ساختمان
   if (to.path === '/onboarding') {
     if (!user.value) return navigateTo('/auth/login')
-    if (user.value.role !== 'manager') return navigateTo('/')
+    if (!store.isBuildingManager(user.value)) return navigateTo('/')
     if (store.buildingOfUser(user.value) && to.query.force === undefined) {
       return navigateTo('/building')
     }
@@ -37,7 +49,7 @@ export default defineNuxtRouteMiddleware((to) => {
     if (!store.buildingOfUser(user.value)) return navigateTo('/building')
     // ایجاد و ویرایش اطلاعیه فقط برای مدیر
     const isAnnouncementWrite = to.path === '/announcements/new' || /^\/announcements\/[^/]+\/edit$/.test(to.path)
-    if (isAnnouncementWrite && user.value.role !== 'manager') return navigateTo('/announcements')
+    if (isAnnouncementWrite && !store.isBuildingManager(user.value)) return navigateTo('/announcements')
   }
 
   // شارژ، هزینه‌ها و شفافیت مالی: نیازمند ورود و عضویت در ساختمان
@@ -48,7 +60,7 @@ export default defineNuxtRouteMiddleware((to) => {
     if (!store.buildingOfUser(user.value)) return navigateTo('/building')
     // ایجاد شارژ و هزینه فقط برای مدیر
     const isFinanceWrite = to.path === '/charges/new' || to.path === '/expenses/new'
-    if (isFinanceWrite && user.value.role !== 'manager') {
+    if (isFinanceWrite && !store.isBuildingManager(user.value)) {
       return navigateTo(to.path.startsWith('/charges') ? '/charges' : '/expenses')
     }
   }
@@ -74,7 +86,7 @@ export default defineNuxtRouteMiddleware((to) => {
   if (to.path.startsWith('/building/') && to.path !== '/building') {
     if (!user.value) return navigateTo('/auth/login')
     if (!store.buildingOfUser(user.value)) return navigateTo('/building')
-    if (to.path === '/building/invite' && user.value.role !== 'manager') {
+    if (to.path === '/building/invite' && !store.isBuildingManager(user.value)) {
       return navigateTo('/building')
     }
   }

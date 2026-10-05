@@ -38,7 +38,6 @@ const activeInvitation = computed(() => {
 const isEditDialogOpen = ref(false)
 const editName = ref('')
 const editAddress = ref('')
-const editUnitsCount = ref('')
 const editDescription = ref('')
 const editError = ref('')
 
@@ -46,7 +45,6 @@ function openEditDialog() {
   if (!building.value) return
   editName.value = building.value.name
   editAddress.value = building.value.address
-  editUnitsCount.value = String(building.value.unitsCount)
   editDescription.value = building.value.description ?? ''
   editError.value = ''
   isEditDialogOpen.value = true
@@ -59,15 +57,10 @@ function submitEdit() {
     editError.value = 'نام و آدرس ساختمان الزامی است.'
     return
   }
-  const count = Number.parseInt(editUnitsCount.value, 10)
-  if (Number.isNaN(count) || count <= 0) {
-    editError.value = 'تعداد واحدها را با عدد معتبر وارد کنید.'
-    return
-  }
   store.updateBuilding(building.value.id, {
     name: editName.value.trim(),
     address: editAddress.value.trim(),
-    unitsCount: count,
+    unitsCount: buildingUnits.value.length,
     description: editDescription.value.trim() || undefined,
   })
   toast.add({ title: 'اطلاعات ساختمان به‌روزرسانی شد', color: 'success' })
@@ -161,14 +154,14 @@ const managerActions = [
               <Icon name="i-lucide-pencil" class="size-3.5" />
               ویرایش اطلاعات ساختمان
             </button>
-            <NuxtLink
+            <a
               v-if="manager?.phone"
-              :to="`tel:${manager.phone}`"
-              class="flex items-center gap-1.5 rounded-full bg-slate-100 px-3.5 py-1.5 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-200 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-800"
+              :href="telHref(manager.phone)"
+              class="flex items-center gap-1.5 rounded-full bg-slate-100 px-3.5 py-1.5 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-200 focus-visible:ring-2 focus-visible:ring-teal-500/60 focus-visible:outline-none dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-800"
             >
               <Icon name="i-lucide-phone" class="size-3.5" />
               تماس با مدیر
-            </NuxtLink>
+            </a>
           </div>
         </AppCard>
       </section>
@@ -268,10 +261,17 @@ const managerActions = [
     <UModal v-model:open="isEditDialogOpen" title="ویرایش اطلاعات ساختمان" :ui="{ content: 'max-w-md' }">
       <template #body>
         <form class="space-y-4" @submit.prevent="submitEdit">
-          <BaseTextField v-model="editName" label="نام ساختمان" required :error="editError || undefined" @update:model-value="editError = ''" />
+          <BaseTextField v-model="editName" label="نام ساختمان" required @update:model-value="editError = ''" />
           <BaseTextField v-model="editAddress" label="آدرس" required @update:model-value="editError = ''" />
-          <BaseTextField v-model="editUnitsCount" label="تعداد واحدها" required type="number" />
+          <p class="rounded-xl bg-slate-50 px-3.5 py-2.5 text-xs leading-5 text-slate-500 dark:bg-slate-800/60 dark:text-slate-400">
+            تعداد واحدهای ثبت‌شده:
+            <span class="font-bold text-slate-700 dark:text-slate-200">{{ toPersianDigits(buildingUnits.length) }}</span>
+            — برای افزودن یا حذف واحد به صفحه واحدها بروید.
+          </p>
           <BaseTextAreaField v-model="editDescription" label="توضیحات" hint="اختیاری" />
+          <p v-if="editError" class="rounded-xl bg-red-50 px-3 py-2 text-xs font-semibold text-red-600 dark:bg-red-400/10 dark:text-red-400">
+            {{ editError }}
+          </p>
           <div class="flex w-full flex-row-reverse gap-2">
             <UButton type="submit" color="primary" variant="solid" size="md" block label="ذخیره تغییرات" />
             <UButton type="button" color="neutral" variant="soft" size="md" block label="انصراف" @click="isEditDialogOpen = false" />

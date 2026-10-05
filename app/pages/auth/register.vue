@@ -36,6 +36,8 @@ const formError = ref('')
 const submitting = ref(false)
 
 function submit() {
+  if (submitting.value) return
+  submitting.value = true
   nameError.value = ''
   phoneError.value = ''
   passwordError.value = ''
@@ -43,18 +45,20 @@ function submit() {
 
   if (!name.value.trim()) {
     nameError.value = t('common.required')
+    submitting.value = false
     return
   }
   if (!isValidPhone(phone.value)) {
     phoneError.value = 'شماره موبایل معتبر نیست. (مثال: ۰۹۱۲۳۴۵۶۷۸۹)'
+    submitting.value = false
     return
   }
   if (password.value.length < 4) {
     passwordError.value = 'رمز عبور باید حداقل ۴ کاراکتر باشد.'
+    submitting.value = false
     return
   }
 
-  submitting.value = true
   const result = register({
     name: name.value,
     phone: phone.value,

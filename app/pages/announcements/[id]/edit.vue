@@ -14,9 +14,13 @@ useSeoMeta({
   ogTitle: 'ویرایش اطلاعیه',
 })
 
+const saving = ref(false)
+
 function onSubmit(payload: { title: string; body: string; importance: AnnouncementImportance; image: string | undefined }) {
+  if (saving.value) return
   const target = announcement.value
   if (!target) return
+  saving.value = true
   const imageKey = resolveImagePayload(payload.image, target.image)
   store.updateAnnouncement(target.id, {
     title: payload.title,
@@ -45,6 +49,7 @@ function onCancel() {
           :initial-image="announcement.image"
           submit-label="ذخیره تغییرات"
           submit-icon="i-lucide-save"
+          :busy="saving"
           @submit="onSubmit"
           @cancel="onCancel"
         />

@@ -90,22 +90,38 @@ export function useAppStore() {
       },
     ]
 
-    refs.users.value = [...demoUsers, ...refs.users.value]
+    const knownIds = new Set(refs.users.value.map(item => item.id))
+    const knownPhones = new Set(refs.users.value.map(item => normalizePhone(item.phone)))
+    const missingUsers = demoUsers.filter(item => !knownIds.has(item.id) && !knownPhones.has(item.phone))
+    if (missingUsers.length > 0) {
+      refs.users.value = [...missingUsers, ...refs.users.value]
+    }
 
-    buildings.value = [...seedBuildings]
-    units.value = [...seedUnits]
-    members.value = [...seedMembers]
-    invitations.value = [...seedInvitations]
-    announcements.value = [...seedAnnouncements]
-    problems.value = [...seedProblems]
-    charges.value = [...seedCharges]
-    payments.value = [...seedPayments]
-    expenses.value = [...seedExpenses]
+    // فقط وقتی داده‌ای وجود ندارد بذر بکار؛ از دست رفتن کوکیِ «بذرپاشی‌شده» نباید ساختمان کاربر را پاک کند
+    if (buildings.value.length === 0) {
+      buildings.value = [...seedBuildings]
+      units.value = [...seedUnits]
+      members.value = [...seedMembers]
+      invitations.value = [...seedInvitations]
+      announcements.value = [...seedAnnouncements]
+      problems.value = [...seedProblems]
+      charges.value = [...seedCharges]
+      payments.value = [...seedPayments]
+      expenses.value = [...seedExpenses]
+    }
     // «مورد اعتماد ساختمان» دمو؛ اگر کاربر قبلاً فهرستی برای این ساختمان ساخته، دست نمی‌خورد
     if (!trustedProviders.value[DEMO_BUILDING_ID]) {
       trustedProviders.value = { ...trustedProviders.value, [DEMO_BUILDING_ID]: [...seedTrustedProviderIds] }
     }
     seeded.value = true
+  }
+
+  /** دسترسی مدیریت ساختمان از روی عضویت است، نه فقط نقشی که هنگام ثبت‌نام انتخاب شده */
+  function isBuildingManager(user: AuthUser | null): boolean {
+    if (!user || user.role === 'superadmin') return false
+    const membership = membershipOfUser(user)
+    if (membership) return membership.role === 'manager'
+    return user.role === 'manager'
   }
 
   // ——— کوئری‌ها ———
@@ -194,10 +210,7 @@ export function useAppStore() {
   function addUnit(buildingId: string, input: { number: number; floor: number }): BuildingUnit {
     const unit: BuildingUnit = { id: createId('u'), buildingId, number: input.number, floor: input.floor }
     units.value = [...units.value, unit]
-    const building = buildingById(buildingId)
-    if (building && buildingUnits(buildingId).length > building.unitsCount) {
-      updateBuilding(buildingId, { unitsCount: buildingUnits(buildingId).length })
-    }
+    syncUnitsCount(buildingId)
     return unit
   }
 
@@ -205,12 +218,38 @@ export function useAppStore() {
     units.value = units.value.map(unit => (unit.id === id ? { ...unit, ...patch } : unit))
   }
 
+  function syncUnitsCount(buildingId: string) {
+    updateBuilding(buildingId, {
+      unitsCount: units.value.filter(unit => unit.buildingId === buildingId).length,
+    })
+  }
+
+  /**
+   * بازتولید واحدهای خودکار آنبردینگ وقتی تعداد واحد در مرحله ساخت تغییر می‌کند.
+   * تخصیص واحدهای قبلی پاک می‌شود چون شماره واحدها از نو ساخته می‌شوند.
+   */
+  function replaceGeneratedUnits(buildingId: string, count: number) {
+    const generated: BuildingUnit[] = Array.from({ length: count }, (_, index) => ({
+      id: createId('u'),
+      buildingId,
+      number: index + 1,
+      floor: Math.floor(index / 2) + 1,
+    }))
+    units.value = [...units.value.filter(unit => unit.buildingId !== buildingId), ...generated]
+    members.value = members.value.map(member =>
+      member.buildingId === buildingId ? { ...member, unitId: undefined, unitStatus: undefined } : member,
+    )
+    syncUnitsCount(buildingId)
+  }
+
   function removeUnit(id: string) {
+    const buildingId = units.value.find(unit => unit.id === id)?.buildingId
     units.value = units.value.filter(unit => unit.id !== id)
     // آزادسازی اعضای تخصیص‌یافته به واحد حذف‌شده
     members.value = members.value.map(member =>
       member.unitId === id ? { ...member, unitId: undefined, unitStatus: undefined } : member,
     )
+    if (buildingId) syncUnitsCount(buildingId)
   }
 
   // ——— اعضا ———
@@ -232,7 +271,7 @@ export function useAppStore() {
       id: createId('m'),
       buildingId,
       name: input.name.trim(),
-      phone: input.phone?.trim() || undefined,
+      phone: input.phone ? (normalizePhone(input.phone) || undefined) : undefined,
       role: input.role,
       unitId: input.unitId || undefined,
       unitStatus: input.unitId ? (input.unitStatus ?? 'owner') : undefined,
@@ -299,7 +338,7 @@ export function useAppStore() {
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 
   function findInvitation(code: string): Invitation | null {
-    const normalized = code.trim().toUpperCase()
+    const normalized = normalizeInviteCode(code)
     return invitations.value.find(invitation => invitation.code === normalized) ?? null
   }
 
@@ -314,11 +353,22 @@ export function useAppStore() {
   /** پیوستن کاربر به ساختمان با کد دعوت */
   function joinWithInvitation(code: string, user: AuthUser): { ok: true; building: Building } | { ok: false; error: 'invalid' | 'used' | 'expired' | 'duplicate' } {
     const invitation = findInvitation(code)
-    if (!invitation || invitation.status !== 'active') return { ok: false, error: 'invalid' }
+    if (!invitation) return { ok: false, error: 'invalid' }
+    if (invitation.status === 'used') return { ok: false, error: 'used' }
     if (invitationDisplayStatus(invitation) === 'expired') return { ok: false, error: 'expired' }
+    if (invitation.status !== 'active') return { ok: false, error: 'invalid' }
     const building = buildingById(invitation.buildingId)
     if (!building) return { ok: false, error: 'invalid' }
     if (membershipOfUser(user)) return { ok: false, error: 'duplicate' }
+
+    if (user.role !== 'superadmin' && user.role !== invitation.role) {
+      refs.users.value = refs.users.value.map(item =>
+        item.id === user.id ? { ...item, role: invitation.role } : item,
+      )
+      if (refs.user.value?.id === user.id) {
+        refs.user.value = { ...refs.user.value, role: invitation.role }
+      }
+    }
 
     const member: BuildingMember = {
       id: createId('m'),
@@ -422,8 +472,10 @@ export function useAppStore() {
       createdAt: new Date().toISOString(),
     }
     problems.value = [report, ...problems.value]
-    const managerUserId = members.value.find(member => member.buildingId === buildingId && member.role === 'manager')?.userId
-    pushNotifications([managerUserId && managerUserId !== reporter.id ? managerUserId : undefined], () => ({
+    const managerUserIds = members.value
+      .filter(member => member.buildingId === buildingId && member.role === 'manager' && member.userId && member.userId !== reporter.id)
+      .map(member => member.userId)
+    pushNotifications(managerUserIds, () => ({
       type: 'problem-new',
       title: `گزارش مشکل جدید: «${report.title}»`,
       link: `/problems/${report.id}`,
@@ -606,7 +658,7 @@ export function useAppStore() {
 
   // ——— اعلان‌ها ———
 
-  /** سقف تعداد اعلان‌ها تا کوکی از بودجه حجم عبور نکند */
+  /** سقف اعلان‌های هر کاربر؛ داده در localStorage است و سهم کاربران دیگر را پاک نمی‌کند */
   const NOTIFICATION_CAP = 8
 
   /** ایجاد اعلان برای کاربران مقصد (بدون اعلان به خودِ انجام‌دهنده عمل) */
@@ -622,7 +674,15 @@ export function useAppStore() {
       ...build(),
       createdAt: new Date().toISOString(),
     }))
-    notifications.value = [...created, ...notifications.value].slice(0, NOTIFICATION_CAP)
+    const seen = new Map<string, number>()
+    const kept: AppNotification[] = []
+    for (const item of [...created, ...notifications.value]) {
+      const count = seen.get(item.userId) ?? 0
+      if (count >= NOTIFICATION_CAP) continue
+      seen.set(item.userId, count + 1)
+      kept.push(item)
+    }
+    notifications.value = kept
   }
 
   /** شناسه کاربران دارای حساب در ساختمان (به‌جز انجام‌دهنده عمل) */
@@ -730,6 +790,7 @@ export function useAppStore() {
     payments,
     expenses,
     ensureSeeded,
+    isBuildingManager,
     membershipOfUser,
     buildingOfUser,
     buildingById,
@@ -744,6 +805,7 @@ export function useAppStore() {
     addUnit,
     updateUnit,
     removeUnit,
+    replaceGeneratedUnits,
     addMember,
     removeMember,
     assignMemberToUnit,

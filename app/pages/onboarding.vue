@@ -38,8 +38,8 @@ function submitBuilding() {
     addressError.value = 'آدرس ساختمان را وارد کنید.'
     return
   }
-  const count = Number.parseInt(unitsCount.value, 10)
-  if (!unitsCount.value || Number.isNaN(count) || count <= 0 || count > 500) {
+  const count = parseInteger(unitsCount.value, { min: 1, max: 500 })
+  if (count === null) {
     unitsCountError.value = 'تعداد واحدها را با عدد معتبر وارد کنید.'
     return
   }
@@ -50,9 +50,11 @@ function submitBuilding() {
     store.updateBuilding(building.value.id, {
       name: name.value.trim(),
       address: address.value.trim(),
-      unitsCount: count,
       description: description.value.trim() || undefined,
     })
+    if (store.buildingUnits(building.value.id).length !== count) {
+      store.replaceGeneratedUnits(building.value.id, count)
+    }
     building.value = store.buildingById(building.value.id)
   }
   else {
@@ -136,7 +138,9 @@ function finish() {
           v-model="unitsCount"
           label="تعداد واحدها"
           required
-          type="number"
+          type="text"
+          inputmode="numeric"
+          dir="ltr"
           icon="i-lucide-door-open"
           hint="واحدها به‌صورت خودکار ساخته می‌شوند (هر طبقه ۲ واحد)"
           :error="unitsCountError"

@@ -57,7 +57,7 @@ function clear() {
 </script>
 
 <template>
-  <UFormField :label="label" :hint="hint" :error="error" size="lg" class="w-full items-stretch">
+  <UFormField :label="label" :hint="hint || undefined" :error="error || undefined" size="lg" class="w-full items-stretch">
     <div v-if="model" class="relative w-full">
       <img
         v-if="previewSrc"

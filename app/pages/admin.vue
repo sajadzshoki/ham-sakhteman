@@ -61,7 +61,7 @@ const stats = computed(() => [
               </div>
               <p class="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">{{ building.address }}</p>
               <p class="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
-                {{ toPersianDigits(building.unitsCount) }} واحد
+                {{ toPersianDigits(store.buildingUnits(building.id).length) }} واحد
                 • مدیر: {{ store.buildingManager(building.id)?.name ?? '—' }}
               </p>
             </div>

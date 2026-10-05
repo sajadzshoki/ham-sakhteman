@@ -36,7 +36,8 @@ const unreadCount = computed(() => (clientReady.value && user.value ? store.unre
           v-for="item in nav"
           :key="item.to"
           :to="item.to"
-          class="flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-colors"
+          class="flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-teal-500/60 focus-visible:outline-none"
+          :aria-current="isRouteActive(item.to, route.path) ? 'page' : undefined"
           :class="
             isRouteActive(item.to, route.path)
               ? 'bg-teal-50 text-teal-700 dark:bg-teal-400/10 dark:text-teal-300'

@@ -22,7 +22,10 @@ const periodError = ref('')
 const amountError = ref('')
 const dueAtError = ref('')
 
+const saving = ref(false)
+
 function submit() {
+  if (saving.value) return
   titleError.value = title.value.trim() ? '' : 'عنوان شارژ را وارد کنید.'
   periodError.value = period.value.trim() ? '' : 'دوره شارژ را وارد کنید.'
 
@@ -34,6 +37,8 @@ function submit() {
 
   if (titleError.value || periodError.value || amountError.value || dueAtError.value) return
   if (!building.value || !user.value || parsedAmount === null || !isoDate) return
+
+  saving.value = true
 
   const charge = store.createCharge(
     building.value.id,
@@ -104,6 +109,7 @@ function onCancel() {
             variant="solid"
             size="lg"
             block
+            :loading="saving"
             icon="i-lucide-plus"
             label="ایجاد شارژ"
           />

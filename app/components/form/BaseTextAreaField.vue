@@ -23,7 +23,7 @@ const model = defineModel<string>({ default: '' })
 </script>
 
 <template>
-  <UFormField :label="label" :hint="hint" :error="error" :required="required" size="lg" class="w-full">
+  <UFormField :label="label" :hint="hint || undefined" :error="error || undefined" :required="required" size="lg" class="w-full">
     <UTextarea
       v-model="model"
       :placeholder="placeholder"

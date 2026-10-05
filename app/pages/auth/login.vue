@@ -25,20 +25,23 @@ function selectMethod(next: AuthMethod) {
 }
 
 function submit() {
+  if (submitting.value) return
+  submitting.value = true
   phoneError.value = ''
   passwordError.value = ''
   formError.value = ''
 
   if (!isValidPhone(phone.value)) {
     phoneError.value = 'شماره موبایل معتبر نیست. (مثال: ۰۹۱۲۳۴۵۶۷۸۹)'
+    submitting.value = false
     return
   }
   if (!password.value) {
     passwordError.value = t('common.required')
+    submitting.value = false
     return
   }
 
-  submitting.value = true
   const result = login(phone.value, password.value)
   submitting.value = false
 

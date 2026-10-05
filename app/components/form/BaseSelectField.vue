@@ -27,7 +27,7 @@ const model = defineModel<string | undefined>()
 </script>
 
 <template>
-  <UFormField :label="label" :hint="hint" :error="error" :required="required" size="lg" class="w-full">
+  <UFormField :label="label" :hint="hint || undefined" :error="error || undefined" :required="required" size="lg" class="w-full">
     <USelect
       v-model="model"
       :items="items"

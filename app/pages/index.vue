@@ -3,7 +3,7 @@ import { problemCategoryOf } from '~/data/mock'
 
 const router = useRouter()
 const { t } = useI18n()
-const { user, isAuthenticated } = useAuth()
+const { user, isAuthenticated, isManager } = useAuth()
 const store = useAppStore()
 
 useSeoMeta({
@@ -43,14 +43,14 @@ const dueCount = computed(() => {
 
 /** خلاصه مالی برای داشبورد مدیر */
 const managerSummary = computed(() => {
-  if (!building.value || user.value?.role !== 'manager') return null
+  if (!building.value || !isManager.value) return null
   return store.financialSummary(building.value.id)
 })
 
 /** دسترسی سریع بر اساس نقش — مدیر ابزار مدیریت دارد و ساکن ابزار گزارش و مشاهده */
 /** آمار سریع مدیر برای نمای کلی ساختمان */
 const managerStats = computed(() => {
-  if (!building.value || user.value?.role !== 'manager') return []
+  if (!building.value || !isManager.value) return []
   return [
     { label: 'ساکن', value: store.residentCount(building.value.id), icon: 'i-lucide-users' },
     { label: 'واحد', value: store.buildingUnits(building.value.id).length, icon: 'i-lucide-door-open' },
@@ -59,7 +59,7 @@ const managerStats = computed(() => {
 })
 
 const quickActions = computed(() => {
-  if (user.value?.role === 'manager') {
+  if (isManager.value) {
     return [
       { label: 'ایجاد اطلاعیه', icon: 'i-lucide-megaphone', tint: 'bg-amber-50 text-amber-600 dark:bg-amber-400/10 dark:text-amber-300', to: '/announcements/new' },
       { label: 'ایجاد شارژ', icon: 'i-lucide-wallet', tint: 'bg-teal-50 text-teal-600 dark:bg-teal-400/10 dark:text-teal-300', to: '/charges/new' },
@@ -83,7 +83,7 @@ const latestAnnouncements = computed(() =>
 /** مشکلات باز: مدیر همه را می‌بیند، ساکن فقط گزارش‌های خودش را */
 const openProblems = computed(() => {
   if (!building.value || !user.value) return []
-  const items = user.value.role === 'manager'
+  const items = isManager.value
     ? store.openBuildingProblems(building.value.id)
     : store.problemsOfUser(building.value.id, user.value.id).filter(item => item.status !== 'resolved')
   return items.slice(0, 3)
@@ -91,7 +91,7 @@ const openProblems = computed(() => {
 
 const openProblemsCount = computed(() => {
   if (!building.value || !user.value) return 0
-  return user.value.role === 'manager'
+  return isManager.value
     ? store.openBuildingProblems(building.value.id).length
     : store.problemsOfUser(building.value.id, user.value.id).filter(item => item.status !== 'resolved').length
 })
@@ -136,16 +136,16 @@ const features = [
             <div class="min-w-0 flex-1">
               <div class="flex items-center gap-2">
                 <p class="truncate text-sm font-bold text-slate-800 dark:text-slate-100">{{ building.name }}</p>
-                <StatusBadge v-if="user?.role === 'manager'" status="manager" />
+                <StatusBadge v-if="isManager" status="manager" />
               </div>
               <p class="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">
-                <template v-if="unit && user?.role !== 'manager'">
+                <template v-if="unit && !isManager">
                   {{ unitLabel }}
                   <template v-if="membership?.unitStatus">
                     • {{ membership.unitStatus === 'owner' ? 'مالک' : 'مستأجر' }}
                   </template>
                 </template>
-                <template v-else-if="user?.role === 'manager'">
+                <template v-else-if="isManager">
                   مدیر ساختمان
                 </template>
                 <template v-else>
@@ -184,7 +184,7 @@ const features = [
       </section>
 
       <!-- آمار سریع مدیر -->
-      <section v-if="user?.role === 'manager' && managerStats.length">
+      <section v-if="isManager && managerStats.length">
         <div class="grid grid-cols-3 gap-2.5 sm:gap-3">
           <AppCard v-for="stat in managerStats" :key="stat.label" padding="sm">
             <div class="flex items-center gap-2.5">
@@ -230,9 +230,9 @@ const features = [
           v-else
           icon="i-lucide-megaphone"
           title="هنوز اطلاعیه‌ای ثبت نشده"
-          :description="user?.role === 'manager' ? 'اولین اطلاعیه ساختمان خود را ثبت کنید تا ساکنین در جریان قرار بگیرند.' : 'به‌زودی اطلاعیه‌های ساختمان اینجا نمایش داده می‌شود.'"
+          :description="isManager ? 'اولین اطلاعیه ساختمان خود را ثبت کنید تا ساکنین در جریان قرار بگیرند.' : 'به‌زودی اطلاعیه‌های ساختمان اینجا نمایش داده می‌شود.'"
         >
-          <template v-if="user?.role === 'manager'" #action>
+          <template v-if="isManager" #action>
             <UButton color="primary" variant="solid" size="md" label="ایجاد اطلاعیه" icon="i-lucide-plus" @click="router.push('/announcements/new')" />
           </template>
         </EmptyState>
@@ -241,7 +241,7 @@ const features = [
       <!-- مشکلات باز -->
       <section>
         <SectionHeader
-          :title="user?.role === 'manager' ? 'مشکلات در انتظار رسیدگی' : 'گزارش‌های پیگیری‌نشده شما'"
+          :title="isManager ? 'مشکلات در انتظار رسیدگی' : 'گزارش‌های پیگیری‌نشده شما'"
           :action="{ label: t('common.showAll'), to: '/problems' }"
         />
         <div v-if="openProblems.length" class="space-y-3">
@@ -265,7 +265,7 @@ const features = [
                     {{ problemCategoryOf(problem.category).label }}
                     •
                     {{ formatRelative(problem.createdAt) }}
-                    <template v-if="user?.role === 'manager'">
+                    <template v-if="isManager">
                       • {{ problem.reportedByName }}
                     </template>
                   </p>
@@ -278,11 +278,11 @@ const features = [
           v-else
           icon="i-lucide-circle-check"
           title="مشکل بازی وجود ندارد"
-          :description="user?.role === 'manager'
+          :description="isManager
             ? 'همه گزارش‌های ثبت‌شده رسیدگی شده‌اند.'
             : (openProblemsCount === 0 ? 'اگر مشکلی در ساختمان دیدید، همین‌جا گزارش دهید.' : '')"
         >
-          <template v-if="user?.role !== 'manager'" #action>
+          <template v-if="!isManager" #action>
             <UButton color="primary" variant="soft" size="md" label="گزارش مشکل" icon="i-lucide-plus" @click="router.push('/problems/new')" />
           </template>
         </EmptyState>
@@ -290,7 +290,7 @@ const features = [
 
       <!-- داشبورد مالی مدیر: مانده، درآمد و هزینه -->
       <section
-        v-if="user?.role === 'manager' && managerSummary"
+        v-if="isManager && managerSummary"
         class="space-y-4 rounded-2xl bg-teal-600 p-5 text-white shadow-md shadow-teal-600/20"
       >
         <div class="flex items-center justify-between gap-2">
@@ -333,7 +333,7 @@ const features = [
 
       <!-- کارت شارژ ساکن: بدهی فعال یا حساب تسویه -->
       <section
-        v-else-if="user?.role !== 'manager' && nextDueCharge"
+        v-else-if="!isManager && nextDueCharge"
         class="space-y-4 rounded-2xl bg-teal-600 p-5 text-white shadow-md shadow-teal-600/20"
       >
         <div class="flex items-center justify-between gap-2">
@@ -371,7 +371,7 @@ const features = [
         />
       </section>
 
-      <section v-else-if="user?.role !== 'manager'">
+      <section v-else-if="!isManager">
         <AppCard>
           <div class="flex items-center gap-3">
             <span class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-400/10 dark:text-emerald-300">
@@ -402,7 +402,7 @@ const features = [
             <template v-else>به هم‌ساختمان خوش آمدید 👋</template>
           </h1>
           <p class="text-sm leading-6 text-teal-50">
-            <template v-if="isAuthenticated && user?.role === 'manager'">
+            <template v-if="isAuthenticated && isManager">
               ساختمان خود را بسازید، واحدها را مدیریت کنید و ساکنین را دعوت کنید.
             </template>
             <template v-else-if="isAuthenticated">
@@ -418,7 +418,7 @@ const features = [
             <UButton color="neutral" variant="solid" size="lg" block label="ورود به حساب" icon="i-lucide-log-in" class="bg-white text-teal-700 hover:bg-teal-50" @click="router.push('/auth/login')" />
             <UButton color="neutral" variant="soft" size="lg" block label="ایجاد حساب جدید" class="bg-white/15 text-white hover:bg-white/25" @click="router.push('/auth/register')" />
           </template>
-          <template v-else-if="user?.role === 'manager'">
+          <template v-else-if="isManager">
             <UButton color="neutral" variant="solid" size="lg" block label="ساخت ساختمان" icon="i-lucide-plus" class="bg-white text-teal-700 hover:bg-teal-50" @click="router.push('/onboarding')" />
           </template>
           <template v-else>

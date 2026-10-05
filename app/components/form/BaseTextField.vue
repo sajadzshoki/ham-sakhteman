@@ -11,6 +11,8 @@ withDefaults(
     disabled?: boolean
     /** جهت متن ورودی؛ برای شماره موبایل و کدها از «ltr» استفاده می‌شود */
     dir?: 'rtl' | 'ltr'
+    /** برای فیلدهای عددی فارسی؛ مثلاً numeric */
+    inputmode?: 'text' | 'numeric' | 'tel' | 'decimal'
   }>(),
   {
     label: undefined,
@@ -21,6 +23,7 @@ withDefaults(
     icon: undefined,
     disabled: false,
     dir: undefined,
+    inputmode: undefined,
   },
 )
 
@@ -28,7 +31,7 @@ const model = defineModel<string>({ default: '' })
 </script>
 
 <template>
-  <UFormField :label="label" :hint="hint" :error="error" :required="required" size="lg" class="w-full">
+  <UFormField :label="label" :hint="hint || undefined" :error="error || undefined" :required="required" size="lg" class="w-full">
     <UInput
       v-model="model"
       :type="type"
@@ -36,6 +39,7 @@ const model = defineModel<string>({ default: '' })
       :icon="icon"
       :disabled="disabled"
       :dir="dir"
+      :inputmode="inputmode"
       size="lg"
       class="w-full"
     />
