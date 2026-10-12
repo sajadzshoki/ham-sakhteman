@@ -9,11 +9,21 @@ export function readSessionCookie(event: H3Event) {
   return getCookie(event, SESSION_COOKIE) || null
 }
 
+function isSecureRequest(event: H3Event) {
+  const proto = String(event.node.req.headers['x-forwarded-proto'] || '')
+    .split(',')[0]
+    ?.trim()
+    .toLowerCase()
+  if (proto === 'https') return true
+  if (proto === 'http') return false
+  return Boolean(event.node.req.socket && (event.node.req.socket as { encrypted?: boolean }).encrypted)
+}
+
 export function writeSessionCookie(event: H3Event, token: string) {
   setCookie(event, SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    secure: isSecureRequest(event),
     path: '/',
     maxAge: Math.floor(sessionTtlMs() / 1000),
   })
