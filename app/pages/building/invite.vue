@@ -17,14 +17,25 @@ const activeInvitation = computed(
 // ——— ساخت کد جدید ———
 const newInviteRole = ref<BuildingRole>('resident')
 
-function createInvitation() {
-  if (!building.value || !user.value) return
-  const invitation = store.createInvitation(building.value.id, newInviteRole.value, user.value.id)
-  toast.add({
-    title: 'کد دعوت جدید ساخته شد',
-    description: `کد «${invitation.code}» را با ساکنین به اشتراک بگذارید.`,
-    color: 'success',
-  })
+const creating = ref(false)
+
+async function createInvitation() {
+  if (!building.value || creating.value) return
+  creating.value = true
+  try {
+    const invitation = await store.createInvitation(building.value.id, newInviteRole.value)
+    toast.add({
+      title: 'کد دعوت جدید ساخته شد',
+      description: `کد «${invitation.code}» را با ساکنین به اشتراک بگذارید.`,
+      color: 'success',
+    })
+  }
+  catch (error) {
+    toast.add({ title: apiErrorMessage(error, 'ساخت کد دعوت انجام نشد'), color: 'error' })
+  }
+  finally {
+    creating.value = false
+  }
 }
 
 // ——— حذف دعوت‌نامه ———
@@ -36,10 +47,15 @@ function askRemove(invitation: Invitation) {
   isRemoveDialogOpen.value = true
 }
 
-function confirmRemove() {
+async function confirmRemove() {
   if (!invitationToRemove.value) return
-  store.removeInvitation(invitationToRemove.value.id)
-  toast.add({ title: 'دعوت‌نامه حذف شد', color: 'success' })
+  try {
+    await store.deleteInvitation(invitationToRemove.value.id)
+    toast.add({ title: 'دعوت‌نامه حذف شد', color: 'success' })
+  }
+  catch (error) {
+    toast.add({ title: apiErrorMessage(error, 'حذف دعوت‌نامه انجام نشد'), color: 'error' })
+  }
 }
 
 const roleLabel = (role: BuildingRole) => (role === 'manager' ? 'مدیر ساختمان' : 'ساکن')
@@ -81,6 +97,7 @@ const roleLabel = (role: BuildingRole) => (role === 'manager' ? 'مدیر ساخ
             block
             icon="i-lucide-plus"
             label="ساخت کد دعوت"
+            :loading="creating"
             @click="createInvitation"
           />
         </div>

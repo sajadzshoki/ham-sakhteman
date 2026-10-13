@@ -26,10 +26,15 @@ const themeOptions: { id: ThemeMode, label: string, icon: string }[] = [
 
 const isLogoutDialogOpen = ref(false)
 
-function onLogout() {
-  logout()
-  toast.add({ title: t('common.logoutDone'), color: 'success' })
-  router.push('/auth/login')
+async function onLogout() {
+  try {
+    await logout()
+    toast.add({ title: t('common.logoutDone'), color: 'success' })
+    await router.push('/auth/login')
+  }
+  catch (error) {
+    toast.add({ title: apiErrorMessage(error, 'خروج از حساب انجام نشد'), color: 'error' })
+  }
 }
 </script>
 

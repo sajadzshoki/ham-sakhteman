@@ -1,21 +1,26 @@
+import type { InferSelectModel } from 'drizzle-orm'
 import type {
   Announcement,
+  AppNotification,
   Building,
+  BuildingCharge,
   BuildingMember,
   BuildingUnit,
-  Charge,
+  ChargePayment,
+  ChargeWithPayments,
   Expense,
   Invitation,
-  NotificationItem,
+  InvitationStatus,
   ProblemReport,
   ServiceProvider,
   User,
-} from '../../types'
+} from '../../shared/types'
 import type {
   announcements,
   buildingMembers,
   buildingUnits,
   buildings,
+  chargePayments,
   charges,
   expenses,
   invitations,
@@ -24,7 +29,7 @@ import type {
   serviceProviders,
   users,
 } from '../database/schema'
-import type { InferSelectModel } from 'drizzle-orm'
+import { deriveChargeStatus } from '../../shared/utils/charge'
 import { invitationLink } from './env'
 
 type UserRow = InferSelectModel<typeof users>
@@ -35,34 +40,44 @@ type InvitationRow = InferSelectModel<typeof invitations>
 type AnnouncementRow = InferSelectModel<typeof announcements>
 type ProblemRow = InferSelectModel<typeof problemReports>
 type ChargeRow = InferSelectModel<typeof charges>
+type PaymentRow = InferSelectModel<typeof chargePayments>
 type ExpenseRow = InferSelectModel<typeof expenses>
 type ProviderRow = InferSelectModel<typeof serviceProviders>
 type NotificationRow = InferSelectModel<typeof notifications>
+
+type Names = Map<string, string>
+
+const nameOf = (names: Names, id: string) => names.get(id) ?? ''
 
 export function presentUser(row: UserRow): User {
   return {
     id: row.id,
     name: row.name,
-    email: row.email,
-    phone: row.phone ?? '',
+    phone: row.phone,
+    email: row.email ?? undefined,
     role: row.role,
     avatarInitials: row.avatarInitials ?? undefined,
     createdAt: row.createdAt.toISOString(),
   }
 }
 
-export function presentBuilding(row: BuildingRow, unitCount: number, residentCount: number): Building {
+export function presentBuilding(
+  row: BuildingRow,
+  counts: { unitsCount: number, memberCount: number },
+  options: { includeInvitation: boolean },
+): Building {
   return {
     id: row.id,
     name: row.name,
     address: row.address,
     description: row.description ?? undefined,
-    unitCount,
-    residentCount,
+    unitsCount: counts.unitsCount,
+    memberCount: counts.memberCount,
     managerId: row.managerId,
-    invitationCode: row.invitationCode,
-    invitationLink: invitationLink(row.invitationCode),
     createdAt: row.createdAt.toISOString(),
+    ...(options.includeInvitation
+      ? { invitationCode: row.invitationCode, invitationLink: invitationLink(row.invitationCode) }
+      : {}),
   }
 }
 
@@ -72,25 +87,27 @@ export function presentUnit(row: UnitRow): BuildingUnit {
     buildingId: row.buildingId,
     number: row.number,
     floor: row.floor,
-    status: row.status,
-    residentName: row.residentName ?? undefined,
-    residentId: row.residentUserId ?? undefined,
   }
 }
 
-export function presentMember(row: MemberRow, user?: { id: string, name: string, avatarInitials: string | null }): BuildingMember {
+export function presentMember(row: MemberRow): BuildingMember {
   return {
     id: row.id,
     buildingId: row.buildingId,
-    userId: row.userId,
-    unitId: row.unitId ?? undefined,
+    userId: row.userId ?? undefined,
+    name: row.name,
+    phone: row.phone ?? undefined,
     role: row.role,
+    unitId: row.unitId ?? undefined,
+    unitStatus: row.unitStatus ?? undefined,
     joinedAt: row.joinedAt.toISOString(),
     invitedBy: row.invitedBy ?? undefined,
-    user: user
-      ? { id: user.id, name: user.name, email: '', role: row.role, avatarInitials: user.avatarInitials ?? undefined, createdAt: row.joinedAt.toISOString() }
-      : undefined,
   }
+}
+
+export function invitationStatus(row: Pick<InvitationRow, 'used' | 'expiresAt'>, now = new Date()): InvitationStatus {
+  if (row.used) return 'used'
+  return row.expiresAt.getTime() <= now.getTime() ? 'expired' : 'active'
 }
 
 export function presentInvitation(row: InvitationRow): Invitation {
@@ -98,63 +115,104 @@ export function presentInvitation(row: InvitationRow): Invitation {
     id: row.id,
     buildingId: row.buildingId,
     code: row.code,
-    link: invitationLink(row.code),
+    role: row.role,
     createdBy: row.createdBy,
-    used: row.used,
+    createdAt: row.createdAt.toISOString(),
+    expiresAt: row.expiresAt.toISOString(),
+    status: invitationStatus(row),
+    link: invitationLink(row.code),
     usedBy: row.usedBy ?? undefined,
     usedAt: row.usedAt?.toISOString(),
-    createdAt: row.createdAt.toISOString(),
   }
 }
 
-export function presentAnnouncement(row: AnnouncementRow): Announcement {
+export function presentAnnouncement(row: AnnouncementRow, names: Names): Announcement {
   return {
     id: row.id,
     buildingId: row.buildingId,
     title: row.title,
-    description: row.description,
+    body: row.body,
     importance: row.importance,
-    imageUrl: row.imageUrl ?? undefined,
+    image: row.imageUrl ?? undefined,
     createdBy: row.createdBy,
+    createdByName: nameOf(names, row.createdBy),
     createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
   }
 }
 
-export function presentProblem(row: ProblemRow): ProblemReport {
+export function presentProblem(row: ProblemRow, names: Names): ProblemReport {
   return {
     id: row.id,
     buildingId: row.buildingId,
     category: row.category,
     title: row.title,
     description: row.description,
-    imageUrl: row.imageUrl ?? undefined,
+    image: row.imageUrl ?? undefined,
     status: row.status,
-    createdBy: row.createdBy,
+    reportedBy: row.createdBy,
+    reportedByName: nameOf(names, row.createdBy),
     createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt?.toISOString(),
-    assignedTo: row.assignedTo ?? undefined,
+    updatedAt: row.updatedAt.toISOString(),
   }
 }
 
-export function presentCharge(row: ChargeRow): Charge {
+export function presentCharge(row: ChargeRow, names: Names): BuildingCharge {
   return {
     id: row.id,
     buildingId: row.buildingId,
     title: row.title,
-    amount: row.amount,
     period: row.period,
-    dueDate: row.dueDate,
-    description: row.description ?? undefined,
-    status: row.status,
-    paidAt: row.paidAt ?? undefined,
-    paidBy: row.paidBy ?? undefined,
-    note: row.note ?? undefined,
-    createdAt: row.createdAt.toISOString(),
+    amount: row.amount,
+    dueAt: row.dueAt.toISOString(),
+    notes: row.notes || undefined,
     createdBy: row.createdBy,
+    createdByName: nameOf(names, row.createdBy),
+    createdAt: row.createdAt.toISOString(),
   }
 }
 
-export function presentExpense(row: ExpenseRow): Expense {
+export function presentPayment(row: PaymentRow): ChargePayment {
+  return {
+    id: row.id,
+    chargeId: row.chargeId,
+    memberId: row.memberId,
+    memberName: row.memberName,
+    amount: row.amount,
+    paidAt: row.paidAt.toISOString(),
+    note: row.note || undefined,
+    method: row.method,
+    recordedBy: row.recordedBy,
+  }
+}
+
+/**
+ * شارژ + پرداخت‌ها + خلاصه‌ی وصول.
+ * `viewerMemberId` عضو کاربر جاری است؛ وضعیت (paid/unpaid/overdue) فقط برای او محاسبه می‌شود.
+ */
+export function presentChargeWithPayments(
+  row: ChargeRow,
+  payments: PaymentRow[],
+  options: { names: Names, memberCount: number, viewerMemberId?: string | null },
+): ChargeWithPayments {
+  const base = presentCharge(row, options.names)
+  const result: ChargeWithPayments = {
+    ...base,
+    payments: payments.map(presentPayment),
+    paidCount: payments.length,
+    memberCount: options.memberCount,
+    collectedAmount: payments.reduce((sum, payment) => sum + payment.amount, 0),
+  }
+  if (options.viewerMemberId) {
+    result.status = deriveChargeStatus({
+      dueAt: row.dueAt,
+      paid: payments.some((payment) => payment.memberId === options.viewerMemberId),
+    })
+  }
+  return result
+}
+
+export function presentExpense(row: ExpenseRow, names: Names): Expense {
   return {
     id: row.id,
     buildingId: row.buildingId,
@@ -162,14 +220,15 @@ export function presentExpense(row: ExpenseRow): Expense {
     amount: row.amount,
     category: row.category,
     date: row.date,
-    description: row.description ?? undefined,
-    receiptUrl: row.receiptUrl ?? undefined,
-    createdAt: row.createdAt.toISOString(),
+    notes: row.notes || undefined,
+    receipt: row.receiptUrl ?? undefined,
     createdBy: row.createdBy,
+    createdByName: nameOf(names, row.createdBy),
+    createdAt: row.createdAt.toISOString(),
   }
 }
 
-export function presentProvider(row: ProviderRow): ServiceProvider {
+export function presentProvider(row: ProviderRow, trusted?: boolean): ServiceProvider {
   return {
     id: row.id,
     name: row.name,
@@ -177,23 +236,22 @@ export function presentProvider(row: ProviderRow): ServiceProvider {
     description: row.description,
     rating: Number(row.rating),
     phone: row.phone,
-    area: row.area,
+    serviceArea: row.serviceArea,
     workingHours: row.workingHours,
-    imageUrl: row.imageUrl ?? undefined,
-    trusted: row.trusted,
-    createdAt: row.createdAt.toISOString(),
-    createdBy: row.createdBy ?? undefined,
+    image: row.imageUrl ?? undefined,
+    ...(trusted === undefined ? {} : { trusted }),
   }
 }
 
-export function presentNotification(row: NotificationRow): NotificationItem {
+export function presentNotification(row: NotificationRow): AppNotification {
   return {
     id: row.id,
-    title: row.title,
-    message: row.message,
-    time: row.createdAt.toISOString().slice(0, 10),
-    unread: row.unread,
-    link: row.link ?? undefined,
+    userId: row.userId,
     type: row.type,
+    title: row.title,
+    body: row.body || undefined,
+    link: row.link ?? undefined,
+    createdAt: row.createdAt.toISOString(),
+    readAt: row.readAt?.toISOString(),
   }
 }

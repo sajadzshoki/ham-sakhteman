@@ -35,15 +35,26 @@ function openEdit() {
   isEditOpen.value = true
 }
 
-function saveProfile() {
-  if (!user.value) return
+const savingProfile = ref(false)
+
+async function saveProfile() {
+  if (!user.value || savingProfile.value) return
   if (!editName.value.trim()) {
     editError.value = t('common.required')
     return
   }
-  store.updateProfile(user.value.id, editName.value)
-  isEditOpen.value = false
-  toast.add({ title: 'پروفایل به‌روزرسانی شد', color: 'success' })
+  savingProfile.value = true
+  try {
+    await store.updateProfile(editName.value.trim())
+    isEditOpen.value = false
+    toast.add({ title: 'پروفایل به‌روزرسانی شد', color: 'success' })
+  }
+  catch (error) {
+    editError.value = apiErrorMessage(error, 'ذخیره پروفایل انجام نشد.')
+  }
+  finally {
+    savingProfile.value = false
+  }
 }
 
 interface AccountMenuItem {
@@ -178,7 +189,7 @@ const menuItems = computed<AccountMenuItem[]>(() => [
       </template>
       <template #footer>
         <div class="flex w-full flex-row-reverse gap-2">
-          <UButton color="primary" variant="solid" size="md" block label="ذخیره" @click="saveProfile" />
+          <UButton color="primary" variant="solid" size="md" block label="ذخیره" :loading="savingProfile" @click="saveProfile" />
           <UButton color="neutral" variant="soft" size="md" block :label="t('common.cancel')" @click="isEditOpen = false" />
         </div>
       </template>

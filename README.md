@@ -1,5 +1,6 @@
-https://ham-sakhteman2.netlify.app/
 # هم‌ساختمان 🏢
+
+وضعیت واقعی کد، API، ورود OTP و دیپلوی: [docs/CURRENT.md](./docs/CURRENT.md). اسناد `BACKEND.md` و `docs/DATA-MODEL.md` قدیمی‌اند.
 
 اپلیکیشن مدرن، فارسی و راست‌به‌چپ مدیریت ساختمان — ساخته‌شده با **Nuxt 4**، **Vue 3**،
 **TypeScript**، **Tailwind CSS v4** و **Nuxt UI v4**.

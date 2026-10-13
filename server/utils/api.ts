@@ -1,5 +1,5 @@
 import { defineEventHandler, setResponseStatus, type H3Event } from 'h3'
-import type { User } from '../../types'
+import type { User } from '../../shared/types'
 import { ApiError, isForeignKeyViolation, isUniqueViolation } from './errors'
 
 export function defineApi(handler: (event: H3Event) => Promise<unknown>) {
@@ -26,6 +26,12 @@ export function defineApi(handler: (event: H3Event) => Promise<unknown>) {
       if (isForeignKeyViolation(error)) {
         setResponseStatus(event, 422)
         return { success: false, error: { code: 'VALIDATION_ERROR', message: 'ارجاع داده‌شده معتبر نیست', details: {} } }
+      }
+      // بدنه‌ی JSON نامعتبر و خطاهای مشابه h3 باید ۴۰۰ باشند، نه ۵۰۰
+      const status = (error as { statusCode?: unknown } | null)?.statusCode
+      if (typeof status === 'number' && status >= 400 && status < 500) {
+        setResponseStatus(event, status)
+        return { success: false, error: { code: status === 400 ? 'BAD_REQUEST' : 'REQUEST_ERROR', message: 'درخواست نامعتبر است', details: {} } }
       }
       console.error(error)
       setResponseStatus(event, 500)

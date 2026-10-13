@@ -1,65 +1,100 @@
-import type { AuthMethod, AuthUser, BuildingRole } from '~/types'
+import type { AuthMethod, AuthUser, BuildingRole, OtpRequestResult } from '~/types'
+
+/** کاربر وارد‌شده؛ بین SSR و کلاینت با payload نوکست منتقل می‌شود (نشست واقعی کوکی HttpOnly است) */
+export function useAuthState() {
+  return useState<AuthUser | null>('auth-user', () => null)
+}
 
 /**
- * احراز هویت نمایشی مبتنی بر کوکی (خوانا در SSR برای هم‌خوانی رندر).
- * معماری برای ورود با رمز عبور و کد یک‌بارمصرف (OTP) آماده است؛
- * در حال حاضر فقط مسیر رمز عبور فعال است.
+ * احراز هویت با کد یک‌بارمصرف پیامکی (OTP):
+ * `requestOtp` ← `verifyOtp` (کوکی `hs_session` را سرور می‌گذارد) ← `fetchMe` / `logout`.
  */
 export function useAuth() {
-  const refs = useStoreRefs()
+  const session = useAuthState()
+  /** آیا یک‌بار `/api/auth/me` پرسیده شده؟ (برای پرهیز از درخواست تکراری مهمان‌ها) */
+  const checked = useState<boolean>('auth-checked', () => false)
+  const request = useApi()
   const store = useAppStore()
-  const session = refs.user
-  const users = refs.users
-  const pendingJoinCode = refs.pendingJoin
+
+  /** کد دعوتِ در انتظار پیوستن؛ فقط یک کوکی کوچک، نه استور دامنه */
+  const pendingJoinCode = useCookie<string | null>('ham-pending-join', {
+    maxAge: 60 * 60 * 24,
+    sameSite: 'lax',
+    default: () => null,
+  })
 
   const user = computed(() => session.value)
   const isAuthenticated = computed(() => session.value !== null)
   const isManager = computed(() => store.isBuildingManager(session.value))
   const isSuperAdmin = computed(() => session.value?.role === 'superadmin')
 
-  function login(phone: string, password: string): { ok: boolean; error?: 'invalid' } {
-    const normalizedPhone = normalizePhone(phone)
-    if (!password) return { ok: false, error: 'invalid' }
-    const found = users.value.find(
-      item => normalizePhone(item.phone) === normalizedPhone && (item.password ?? '') === password,
-    )
-    if (!found) return { ok: false, error: 'invalid' }
-    session.value = found
-    return { ok: true }
+  /** ارسال کد تأیید؛ در محیط توسعه (بدون کلید کاوه‌نگار) `devCode` برمی‌گردد */
+  function requestOtp(phone: string, purpose: 'login' | 'register'): Promise<OtpRequestResult> {
+    return request<OtpRequestResult>('/api/auth/otp/request', {
+      method: 'POST',
+      body: { phone, purpose },
+    })
   }
 
-  function register(input: {
-    name: string
+  /** تأیید کد؛ برای ثبت‌نام `name` و `role` هم فرستاده می‌شود */
+  async function verifyOtp(input: {
     phone: string
-    password: string
-    role: BuildingRole
-  }): { ok: boolean; error?: 'duplicate' } {
-    const phone = normalizePhone(input.phone)
-    if (users.value.some(item => normalizePhone(item.phone) === phone)) {
-      return { ok: false, error: 'duplicate' }
-    }
-    const newUser: AuthUser = {
-      id: createId('user'),
-      name: input.name.trim(),
-      phone,
-      role: input.role,
-      password: input.password,
-      createdAt: new Date().toISOString(),
-    }
-    users.value = [...users.value, newUser]
-    session.value = newUser
-    return { ok: true }
+    code: string
+    name?: string
+    role?: BuildingRole
+  }): Promise<AuthUser> {
+    const result = await request<{ user: AuthUser }>('/api/auth/otp/verify', {
+      method: 'POST',
+      body: { ...input },
+    })
+    session.value = result.user
+    checked.value = true
+    store.reset()
+    // ساختمان کاربر برای مقصد‌یابی پس از ورود لازم است
+    await store.refresh().catch(() => undefined)
+    return result.user
   }
 
-  function logout() {
-    session.value = null
+  /** بازیابی کاربر از روی کوکی نشست؛ بدون نشست `null` */
+  async function fetchMe(): Promise<AuthUser | null> {
+    try {
+      const result = await request<{ user: AuthUser }>('/api/auth/me')
+      session.value = result.user
+    }
+    catch (error) {
+      if (error instanceof ApiRequestError && error.status !== 401) {
+        // خطای شبکه/سرور نباید مهمان‌بودن را قطعی کند؛ دوباره تلاش می‌شود
+        throw error
+      }
+      session.value = null
+    }
+    checked.value = true
+    return session.value
+  }
+
+  /** اگر هنوز کاربری در state نیست، یک‌بار از سرور می‌پرسد */
+  async function ensureUser(): Promise<AuthUser | null> {
+    if (session.value || checked.value) return session.value
+    return fetchMe()
+  }
+
+  async function logout() {
+    try {
+      await request('/api/auth/logout', { method: 'POST' })
+    }
+    finally {
+      session.value = null
+      checked.value = true
+      pendingJoinCode.value = null
+      store.reset()
+    }
   }
 
   /**
    * مقصد پس از ورود/ثبت‌نام:
-   * ۱) اگر کد دعوت در انتظار باشد → صفحه پیوستن
-   * ۲) مدیر بدون ساختمان → آنبردینگ ساخت ساختمان
-   * ۳) ساکن بدون ساختمان → صفحه پیوستن با کد دعوت
+   * ۱) سوپرادمین → مدیریت کل
+   * ۲) کد دعوت در انتظار → صفحه پیوستن
+   * ۳) مدیر بدون ساختمان → آنبردینگ؛ ساکن بدون ساختمان → پیوستن با کد
    */
   function redirectAfterAuth(): string {
     if (session.value?.role === 'superadmin') return '/admin'
@@ -68,7 +103,6 @@ export function useAuth() {
       pendingJoinCode.value = null
       return target
     }
-    const store = useAppStore()
     const building = store.buildingOfUser(session.value)
     if (!building) {
       return store.isBuildingManager(session.value) ? '/onboarding' : '/join'
@@ -81,16 +115,17 @@ export function useAuth() {
     isAuthenticated,
     isManager,
     isSuperAdmin,
-    login,
-    register,
+    requestOtp,
+    verifyOtp,
+    fetchMe,
+    ensureUser,
     logout,
     redirectAfterAuth,
     pendingJoinCode,
   }
 }
 
-/** روش‌های ورود پشتیبانی‌شده در معماری احراز هویت */
-export const AUTH_METHODS: { id: AuthMethod; label: string; enabled: boolean }[] = [
-  { id: 'password', label: 'رمز عبور', enabled: true },
-  { id: 'otp', label: 'کد یک‌بارمصرف', enabled: false },
+/** ورود فقط با OTP است؛ فهرست برای سازگاری با صفحات نگه داشته شده */
+export const AUTH_METHODS: { id: AuthMethod, label: string, enabled: boolean }[] = [
+  { id: 'otp', label: 'کد یک‌بارمصرف', enabled: true },
 ]

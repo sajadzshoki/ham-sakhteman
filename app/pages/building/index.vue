@@ -50,21 +50,31 @@ function openEditDialog() {
   isEditDialogOpen.value = true
 }
 
-function submitEdit() {
+const savingEdit = ref(false)
+
+async function submitEdit() {
   editError.value = ''
-  if (!building.value) return
+  if (!building.value || savingEdit.value) return
   if (!editName.value.trim() || !editAddress.value.trim()) {
     editError.value = 'نام و آدرس ساختمان الزامی است.'
     return
   }
-  store.updateBuilding(building.value.id, {
-    name: editName.value.trim(),
-    address: editAddress.value.trim(),
-    unitsCount: buildingUnits.value.length,
-    description: editDescription.value.trim() || undefined,
-  })
-  toast.add({ title: 'اطلاعات ساختمان به‌روزرسانی شد', color: 'success' })
-  isEditDialogOpen.value = false
+  savingEdit.value = true
+  try {
+    await store.updateBuilding(building.value.id, {
+      name: editName.value.trim(),
+      address: editAddress.value.trim(),
+      description: editDescription.value.trim(),
+    })
+    toast.add({ title: 'اطلاعات ساختمان به‌روزرسانی شد', color: 'success' })
+    isEditDialogOpen.value = false
+  }
+  catch (error) {
+    editError.value = apiErrorMessage(error, 'ذخیره تغییرات انجام نشد.')
+  }
+  finally {
+    savingEdit.value = false
+  }
 }
 
 const managerActions = [
@@ -273,7 +283,7 @@ const managerActions = [
             {{ editError }}
           </p>
           <div class="flex w-full flex-row-reverse gap-2">
-            <UButton type="submit" color="primary" variant="solid" size="md" block label="ذخیره تغییرات" />
+            <UButton type="submit" color="primary" variant="solid" size="md" block label="ذخیره تغییرات" :loading="savingEdit" />
             <UButton type="button" color="neutral" variant="soft" size="md" block label="انصراف" @click="isEditDialogOpen = false" />
           </div>
         </form>

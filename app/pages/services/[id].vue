@@ -21,13 +21,18 @@ useSeoMeta({
   ogTitle: () => provider.value?.name ?? 'ارائه‌دهنده خدمات',
 })
 
-function toggleTrusted() {
+async function toggleTrusted() {
   if (!building.value || !provider.value) return
-  const nowTrusted = store.toggleProviderTrusted(building.value.id, provider.value.id)
-  toast.add({
-    title: nowTrusted ? 'این ارائه‌دهنده به ساکنین پیشنهاد می‌شود' : 'از فهرست مورد اعتماد ساختمان خارج شد',
-    color: nowTrusted ? 'success' : 'neutral',
-  })
+  try {
+    const nowTrusted = await store.toggleProviderTrusted(building.value.id, provider.value.id)
+    toast.add({
+      title: nowTrusted ? 'این ارائه‌دهنده به ساکنین پیشنهاد می‌شود' : 'از فهرست مورد اعتماد ساختمان خارج شد',
+      color: nowTrusted ? 'success' : 'neutral',
+    })
+  }
+  catch (error) {
+    toast.add({ title: apiErrorMessage(error, 'تغییر وضعیت انجام نشد'), color: 'error' })
+  }
 }
 </script>
 

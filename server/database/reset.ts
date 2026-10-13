@@ -5,6 +5,8 @@ export async function resetDatabase() {
   await getDb().execute(sql`
     TRUNCATE TABLE
       notifications,
+      building_trusted_providers,
+      charge_payments,
       expenses,
       charges,
       problem_reports,
@@ -13,6 +15,7 @@ export async function resetDatabase() {
       building_members,
       building_units,
       buildings,
+      otp_codes,
       sessions,
       service_providers,
       users

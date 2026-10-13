@@ -32,7 +32,7 @@ onMounted(() => {
 
 const saving = ref(false)
 
-function submit() {
+async function submit() {
   if (saving.value) return
   titleError.value = title.value.trim() ? '' : 'عنوان هزینه را وارد کنید.'
 
@@ -48,21 +48,27 @@ function submit() {
 
   saving.value = true
 
+  // رسید فعلاً فقط مرجع محلی (`img:`) است تا آپلود سرور اضافه شود
   const receiptKey = resolveImagePayload(receipt.value)
-  store.createExpense(
-    building.value.id,
-    {
+  try {
+    await store.createExpense(building.value.id, {
       title: title.value,
       amount: parsedAmount,
       category: category.value,
       date: isoDate,
       notes: notes.value,
       receipt: receiptKey,
-    },
-    { id: user.value.id, name: user.value.name },
-  )
-  toast.add({ title: 'هزینه ثبت شد و ساکنین آن را می‌بینند', color: 'success' })
-  router.push('/expenses')
+    })
+    toast.add({ title: 'هزینه ثبت شد و ساکنین آن را می‌بینند', color: 'success' })
+    await router.push('/expenses')
+  }
+  catch (error) {
+    removeImage(receiptKey)
+    toast.add({ title: apiErrorMessage(error, 'ثبت هزینه انجام نشد'), color: 'error' })
+  }
+  finally {
+    saving.value = false
+  }
 }
 
 function onCancel() {

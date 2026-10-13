@@ -41,10 +41,15 @@ function askRemove(member: BuildingMember) {
   isRemoveDialogOpen.value = true
 }
 
-function confirmRemove() {
+async function confirmRemove() {
   if (!memberToRemove.value) return
-  store.removeMember(memberToRemove.value.id)
-  toast.add({ title: 'عضو از ساختمان حذف شد', color: 'success' })
+  try {
+    await store.removeMember(memberToRemove.value.id)
+    toast.add({ title: 'عضو از ساختمان حذف شد', color: 'success' })
+  }
+  catch (error) {
+    toast.add({ title: apiErrorMessage(error, 'حذف عضو انجام نشد'), color: 'error' })
+  }
 }
 </script>
 

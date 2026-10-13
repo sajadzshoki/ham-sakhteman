@@ -15,17 +15,28 @@ const building = computed(() => store.buildingOfUser(user.value))
 
 const saving = ref(false)
 
-function onSubmit(payload: { title: string; body: string; importance: AnnouncementImportance; image: string | undefined }) {
+async function onSubmit(payload: { title: string; body: string; importance: AnnouncementImportance; image: string | undefined }) {
   if (saving.value || !building.value || !user.value) return
   saving.value = true
+  // تصویر فعلاً فقط مرجع محلی (`img:`) است تا آپلود سرور اضافه شود
   const imageKey = resolveImagePayload(payload.image)
-  const announcement = store.createAnnouncement(
-    building.value.id,
-    { title: payload.title, body: payload.body, importance: payload.importance, image: imageKey },
-    { id: user.value.id, name: user.value.name },
-  )
-  toast.add({ title: 'اطلاعیه با موفقیت ثبت شد', color: 'success' })
-  router.push(`/announcements/${announcement.id}`)
+  try {
+    const announcement = await store.createAnnouncement(building.value.id, {
+      title: payload.title,
+      body: payload.body,
+      importance: payload.importance,
+      image: imageKey,
+    })
+    toast.add({ title: 'اطلاعیه با موفقیت ثبت شد', color: 'success' })
+    await router.push(`/announcements/${announcement.id}`)
+  }
+  catch (error) {
+    removeImage(imageKey)
+    toast.add({ title: apiErrorMessage(error, 'ثبت اطلاعیه انجام نشد'), color: 'error' })
+  }
+  finally {
+    saving.value = false
+  }
 }
 
 function onCancel() {

@@ -48,7 +48,10 @@ watch(open, (value) => {
   phoneError.value = ''
 })
 
-function submit() {
+const saving = ref(false)
+
+async function submit() {
+  if (saving.value) return
   nameError.value = ''
   phoneError.value = ''
 
@@ -61,15 +64,25 @@ function submit() {
     return
   }
 
-  store.addMember(props.buildingId, {
-    name: name.value,
-    phone: phone.value || undefined,
-    role: role.value,
-    unitId: unitId.value || undefined,
-    unitStatus: unitId.value ? unitStatus.value : undefined,
-  })
-  toast.add({ title: 'عضو به ساختمان اضافه شد', color: 'success' })
-  open.value = false
+  saving.value = true
+  try {
+    await store.addMember(props.buildingId, {
+      name: name.value.trim(),
+      phone: phone.value || undefined,
+      role: role.value,
+      unitId: unitId.value || undefined,
+      unitStatus: unitId.value ? unitStatus.value : undefined,
+    })
+    toast.add({ title: 'عضو به ساختمان اضافه شد', color: 'success' })
+    open.value = false
+  }
+  catch (error) {
+    // مثلاً شماره تکراری یا واحد اشغال‌شده (۴۰۹)
+    toast.add({ title: apiErrorMessage(error, 'افزودن عضو انجام نشد'), color: 'error' })
+  }
+  finally {
+    saving.value = false
+  }
 }
 </script>
 
@@ -106,7 +119,7 @@ function submit() {
           :items="[{ label: 'مالک', value: 'owner' }, { label: 'مستأجر', value: 'tenant' }]"
         />
         <div class="flex w-full flex-row-reverse gap-2">
-          <UButton type="submit" color="primary" variant="solid" size="md" block label="افزودن عضو" />
+          <UButton type="submit" color="primary" variant="solid" size="md" block :loading="saving" label="افزودن عضو" />
           <UButton type="button" color="neutral" variant="soft" size="md" block label="انصراف" @click="open = false" />
         </div>
       </form>

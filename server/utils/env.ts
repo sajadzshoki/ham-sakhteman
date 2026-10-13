@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs'
 export function loadEnvFile(path = '.env') {
   if (!existsSync(path)) return
   const text = readFileSync(path, 'utf8')
-  for (const line of text.split('\n')) {
+  for (const line of text.split(/\r?\n/)) {
     const trimmed = line.trim()
     if (!trimmed || trimmed.startsWith('#')) continue
     const eq = trimmed.indexOf('=')
@@ -21,8 +21,9 @@ export function appBaseUrl() {
   return (process.env.APP_BASE_URL || 'http://localhost:3000').replace(/\/$/, '')
 }
 
+/** لینک پیوستن به ساختمان با کد دعوت */
 export function invitationLink(code: string) {
-  return `${appBaseUrl()}/buildings?code=${encodeURIComponent(code)}`
+  return `${appBaseUrl()}/join?code=${encodeURIComponent(code)}`
 }
 
 export function sessionTtlMs() {
@@ -35,4 +36,25 @@ export function requireSessionSecret() {
   const secret = process.env.SESSION_SECRET
   if (!secret) throw new Error('SESSION_SECRET is not set')
   return secret
+}
+
+/** کلید API کاوه‌نگار؛ اگر خالی باشد حالت توسعه (کد ثابت) فعال است */
+export function kavenegarApiKey() {
+  return process.env.KAVENEGAR_API_KEY?.trim() || ''
+}
+
+export function kavenegarSender() {
+  return process.env.KAVENEGAR_SENDER?.trim() || ''
+}
+
+/** مدت اعتبار کد یک‌بارمصرف به ثانیه (پیش‌فرض ۵ دقیقه) */
+export function otpTtlSeconds() {
+  const seconds = Number(process.env.OTP_TTL_SECONDS || 300)
+  return Number.isFinite(seconds) && seconds > 0 ? Math.floor(seconds) : 300
+}
+
+/** کد ثابت محیط توسعه وقتی کلید Kavenegar تنظیم نشده است */
+export function otpDevCode() {
+  const code = process.env.OTP_DEV_CODE?.trim()
+  return code && /^\d{4}$/.test(code) ? code : '1111'
 }

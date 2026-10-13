@@ -32,17 +32,27 @@ const typeMeta: Record<NotificationType, TypeMeta> = {
   'payment-recorded': { icon: 'i-lucide-badge-check', tint: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-400/10 dark:text-emerald-300' },
 }
 
-function openNotification(id: string) {
+async function openNotification(id: string) {
   const item = notifications.value.find(notification => notification.id === id)
   if (!item) return
-  store.markNotificationRead(id)
-  if (item.link) router.push(item.link)
+  try {
+    await store.markNotificationRead(id)
+  }
+  catch (error) {
+    toast.add({ title: apiErrorMessage(error, 'به‌روزرسانی اعلان انجام نشد'), color: 'error' })
+  }
+  if (item.link) await router.push(item.link)
 }
 
-function markAllRead() {
+async function markAllRead() {
   if (!user.value) return
-  store.markAllNotificationsRead(user.value.id)
-  toast.add({ title: 'همه اعلان‌ها خوانده شد', color: 'success' })
+  try {
+    await store.markAllNotificationsRead()
+    toast.add({ title: 'همه اعلان‌ها خوانده شد', color: 'success' })
+  }
+  catch (error) {
+    toast.add({ title: apiErrorMessage(error, 'به‌روزرسانی اعلان‌ها انجام نشد'), color: 'error' })
+  }
 }
 </script>
 

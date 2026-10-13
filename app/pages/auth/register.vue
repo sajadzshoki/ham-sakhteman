@@ -5,11 +5,11 @@ definePageMeta({ layout: 'auth' })
 
 const { t } = useI18n()
 const router = useRouter()
-const { register, redirectAfterAuth } = useAuth()
+const { requestOtp, verifyOtp, redirectAfterAuth } = useAuth()
 
 useSeoMeta({ title: 'ثبت‌نام', ogTitle: 'ثبت‌نام' })
 
-const roleOptions: { id: BuildingRole; title: string; description: string; icon: string }[] = [
+const roleOptions: { id: BuildingRole, title: string, description: string, icon: string }[] = [
   {
     id: 'manager',
     title: 'مدیر ساختمان',
@@ -24,54 +24,74 @@ const roleOptions: { id: BuildingRole; title: string; description: string; icon:
   },
 ]
 
+const step = ref<'details' | 'code'>('details')
 const name = ref('')
 const phone = ref('')
-const password = ref('')
 const role = ref<BuildingRole>('resident')
 
 const nameError = ref('')
 const phoneError = ref('')
-const passwordError = ref('')
 const formError = ref('')
-const submitting = ref(false)
+const alreadyRegistered = ref(false)
+const devCode = ref<string | null>(null)
 
-function submit() {
-  if (submitting.value) return
-  submitting.value = true
+const sending = ref(false)
+const verifying = ref(false)
+const otpStep = ref<{ restartCooldown: () => void } | null>(null)
+
+async function sendCode() {
+  if (sending.value) return
   nameError.value = ''
   phoneError.value = ''
-  passwordError.value = ''
   formError.value = ''
+  alreadyRegistered.value = false
 
   if (!name.value.trim()) {
     nameError.value = t('common.required')
-    submitting.value = false
     return
   }
   if (!isValidPhone(phone.value)) {
     phoneError.value = 'شماره موبایل معتبر نیست. (مثال: ۰۹۱۲۳۴۵۶۷۸۹)'
-    submitting.value = false
-    return
-  }
-  if (password.value.length < 4) {
-    passwordError.value = 'رمز عبور باید حداقل ۴ کاراکتر باشد.'
-    submitting.value = false
     return
   }
 
-  const result = register({
-    name: name.value,
-    phone: phone.value,
-    password: password.value,
-    role: role.value,
-  })
-  submitting.value = false
-
-  if (!result.ok) {
-    formError.value = 'این شماره موبایل قبلاً ثبت شده است. وارد شوید.'
-    return
+  sending.value = true
+  try {
+    const result = await requestOtp(phone.value, 'register')
+    devCode.value = result.devCode ?? null
+    phone.value = result.phone
+    step.value = 'code'
+    otpStep.value?.restartCooldown()
   }
-  router.push(redirectAfterAuth())
+  catch (error) {
+    alreadyRegistered.value = error instanceof ApiRequestError && error.status === 409
+    formError.value = apiErrorMessage(error, 'ارسال کد انجام نشد. دوباره تلاش کنید.')
+  }
+  finally {
+    sending.value = false
+  }
+}
+
+async function verify(code: string) {
+  if (verifying.value) return
+  verifying.value = true
+  formError.value = ''
+  try {
+    await verifyOtp({ phone: phone.value, code, name: name.value.trim(), role: role.value })
+    await router.push(redirectAfterAuth())
+  }
+  catch (error) {
+    formError.value = apiErrorMessage(error, 'تأیید کد انجام نشد. دوباره تلاش کنید.')
+  }
+  finally {
+    verifying.value = false
+  }
+}
+
+function backToDetails() {
+  step.value = 'details'
+  formError.value = ''
+  devCode.value = null
 }
 </script>
 
@@ -80,12 +100,12 @@ function submit() {
     <div class="space-y-1 text-center">
       <h1 class="text-xl font-extrabold tracking-tight text-slate-900 dark:text-white">ایجاد حساب</h1>
       <p class="text-sm text-slate-500 dark:text-slate-400">
-        نقش خود را انتخاب کنید و در چند ثانیه شروع کنید
+        {{ step === 'details' ? 'نقش خود را انتخاب کنید و در چند ثانیه شروع کنید' : 'کد تأیید پیامک‌شده را وارد کنید' }}
       </p>
     </div>
 
     <AppCard as="section">
-      <form class="space-y-4" @submit.prevent="submit">
+      <form v-if="step === 'details'" class="space-y-4" novalidate @submit.prevent="sendCode">
         <!-- انتخاب نقش -->
         <fieldset>
           <legend class="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">
@@ -143,27 +163,32 @@ function submit() {
           dir="ltr"
           icon="i-lucide-smartphone"
           placeholder="09123456789"
+          hint="کد تأیید برای شما پیامک می‌شود"
           :error="phoneError"
           @update:model-value="phoneError = ''"
-        />
-        <BaseTextField
-          v-model="password"
-          label="رمز عبور"
-          required
-          type="password"
-          icon="i-lucide-lock"
-          hint="حداقل ۴ کاراکتر"
-          :error="passwordError"
-          @update:model-value="passwordError = ''"
         />
 
         <p v-if="formError" class="rounded-xl bg-red-50 px-3 py-2 text-xs font-semibold text-red-600 dark:bg-red-400/10 dark:text-red-400">
           {{ formError }}
-          <NuxtLink to="/auth/login" class="font-bold underline">ورود</NuxtLink>
+          <NuxtLink v-if="alreadyRegistered" to="/auth/login" class="font-bold underline">ورود</NuxtLink>
         </p>
 
-        <UButton type="submit" color="primary" variant="solid" size="lg" block :loading="submitting" label="ایجاد حساب" />
+        <UButton type="submit" color="primary" variant="solid" size="lg" block :loading="sending" label="دریافت کد تأیید" />
       </form>
+
+      <OtpStep
+        v-else
+        ref="otpStep"
+        :phone="phone"
+        :dev-code="devCode"
+        :busy="verifying"
+        :resending="sending"
+        :error="formError"
+        submit-label="ایجاد حساب"
+        @verify="verify"
+        @resend="sendCode"
+        @back="backToDetails"
+      />
     </AppCard>
 
     <p class="text-center text-xs text-slate-500 dark:text-slate-400">

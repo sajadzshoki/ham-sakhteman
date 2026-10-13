@@ -34,20 +34,31 @@ watch(open, (value) => {
   unitStatus.value = occupant?.unitStatus ?? 'owner'
 })
 
-function submit() {
-  if (!props.unit) return
-  if (memberId.value) {
-    store.assignMemberToUnit(memberId.value, props.unit.id, unitStatus.value)
-    toast.add({ title: 'ساکن به واحد تخصیص یافت', color: 'success' })
-  }
-  else {
-    const occupant = store.memberOfUnit(props.unit.id)
-    if (occupant) {
-      store.assignMemberToUnit(occupant.id, null)
-      toast.add({ title: 'واحد خالی شد', color: 'success' })
+const saving = ref(false)
+
+async function submit() {
+  if (!props.unit || saving.value) return
+  saving.value = true
+  try {
+    if (memberId.value) {
+      await store.assignMemberToUnit(memberId.value, props.unit.id, unitStatus.value)
+      toast.add({ title: 'ساکن به واحد تخصیص یافت', color: 'success' })
     }
+    else {
+      const occupant = store.memberOfUnit(props.unit.id)
+      if (occupant) {
+        await store.assignMemberToUnit(occupant.id, null)
+        toast.add({ title: 'واحد خالی شد', color: 'success' })
+      }
+    }
+    open.value = false
   }
-  open.value = false
+  catch (error) {
+    toast.add({ title: apiErrorMessage(error, 'تخصیص ساکن انجام نشد'), color: 'error' })
+  }
+  finally {
+    saving.value = false
+  }
 }
 </script>
 
@@ -68,7 +79,7 @@ function submit() {
           :items="[{ label: 'مالک', value: 'owner' }, { label: 'مستأجر', value: 'tenant' }]"
         />
         <div class="flex w-full flex-row-reverse gap-2">
-          <UButton type="submit" color="primary" variant="solid" size="md" block label="ذخیره" />
+          <UButton type="submit" color="primary" variant="solid" size="md" block :loading="saving" label="ذخیره" />
           <UButton type="button" color="neutral" variant="soft" size="md" block label="انصراف" @click="open = false" />
         </div>
       </form>

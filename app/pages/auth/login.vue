@@ -1,63 +1,86 @@
 <script setup lang="ts">
-import type { AuthMethod } from '~/types'
-import { AUTH_METHODS } from '~/composables/useAuth'
-import { DEMO_ACCOUNTS } from '~/data/seed'
+import { DEMO_ACCOUNTS, DEMO_OTP_CODE } from '~/data/demo'
 
 definePageMeta({ layout: 'auth' })
 
 const { t } = useI18n()
 const router = useRouter()
-const { login, redirectAfterAuth } = useAuth()
+const { requestOtp, verifyOtp, redirectAfterAuth } = useAuth()
 
 useSeoMeta({ title: 'ورود', ogTitle: 'ورود' })
 
-const method = ref<AuthMethod>('password')
+const step = ref<'phone' | 'code'>('phone')
 const phone = ref('')
-const password = ref('')
 const phoneError = ref('')
-const passwordError = ref('')
 const formError = ref('')
-const submitting = ref(false)
+const notFound = ref(false)
+const devCode = ref<string | null>(null)
 
-function selectMethod(next: AuthMethod) {
-  method.value = next
-  formError.value = ''
-}
+const sending = ref(false)
+const verifying = ref(false)
+const otpStep = ref<{ restartCooldown: () => void } | null>(null)
 
-function submit() {
-  if (submitting.value) return
-  submitting.value = true
+async function sendCode() {
+  if (sending.value) return
   phoneError.value = ''
-  passwordError.value = ''
   formError.value = ''
+  notFound.value = false
 
+  if (!phone.value.trim()) {
+    phoneError.value = t('common.required')
+    return
+  }
   if (!isValidPhone(phone.value)) {
     phoneError.value = 'شماره موبایل معتبر نیست. (مثال: ۰۹۱۲۳۴۵۶۷۸۹)'
-    submitting.value = false
-    return
-  }
-  if (!password.value) {
-    passwordError.value = t('common.required')
-    submitting.value = false
     return
   }
 
-  const result = login(phone.value, password.value)
-  submitting.value = false
-
-  if (!result.ok) {
-    formError.value = 'شماره موبایل یا رمز عبور اشتباه است.'
-    return
+  sending.value = true
+  try {
+    const result = await requestOtp(phone.value, 'login')
+    devCode.value = result.devCode ?? null
+    phone.value = result.phone
+    step.value = 'code'
+    otpStep.value?.restartCooldown()
   }
-  router.push(redirectAfterAuth())
+  catch (error) {
+    notFound.value = error instanceof ApiRequestError && error.code === 'USER_NOT_FOUND'
+    formError.value = apiErrorMessage(error, 'ارسال کد انجام نشد. دوباره تلاش کنید.')
+  }
+  finally {
+    sending.value = false
+  }
+}
+
+async function verify(code: string) {
+  if (verifying.value) return
+  verifying.value = true
+  formError.value = ''
+  try {
+    await verifyOtp({ phone: phone.value, code })
+    await router.push(redirectAfterAuth())
+  }
+  catch (error) {
+    formError.value = apiErrorMessage(error, 'تأیید کد انجام نشد. دوباره تلاش کنید.')
+  }
+  finally {
+    verifying.value = false
+  }
+}
+
+function backToPhone() {
+  step.value = 'phone'
+  formError.value = ''
+  devCode.value = null
 }
 
 function fillDemo(index: number) {
   const account = DEMO_ACCOUNTS[index]
   if (!account) return
+  backToPhone()
   phone.value = account.phone
-  password.value = account.password
-  formError.value = ''
+  phoneError.value = ''
+  notFound.value = false
 }
 </script>
 
@@ -71,25 +94,8 @@ function fillDemo(index: number) {
     </div>
 
     <AppCard as="section">
-      <!-- انتخاب روش ورود -->
-      <div class="mb-4 grid grid-cols-2 rounded-xl bg-slate-100 p-1 dark:bg-slate-800/60">
-        <button
-          v-for="item in AUTH_METHODS"
-          :key="item.id"
-          type="button"
-          class="rounded-lg py-2 text-xs font-bold transition-colors"
-          :class="
-            method === item.id
-              ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-white'
-              : 'text-slate-500 dark:text-slate-400'
-          "
-          @click="selectMethod(item.id)"
-        >
-          {{ item.label }}
-        </button>
-      </div>
-
-      <form v-if="method === 'password'" class="space-y-4" @submit.prevent="submit">
+      <!-- مرحله ۱: شماره موبایل -->
+      <form v-if="step === 'phone'" class="space-y-4" novalidate @submit.prevent="sendCode">
         <BaseTextField
           v-model="phone"
           label="شماره موبایل"
@@ -98,42 +104,40 @@ function fillDemo(index: number) {
           dir="ltr"
           icon="i-lucide-smartphone"
           placeholder="09123456789"
+          hint="کد تأیید برای شما پیامک می‌شود"
           :error="phoneError"
           @update:model-value="phoneError = ''"
-        />
-        <BaseTextField
-          v-model="password"
-          label="رمز عبور"
-          required
-          type="password"
-          icon="i-lucide-lock"
-          placeholder="••••"
-          :error="passwordError"
-          @update:model-value="passwordError = ''"
         />
 
         <p v-if="formError" class="rounded-xl bg-red-50 px-3 py-2 text-xs font-semibold text-red-600 dark:bg-red-400/10 dark:text-red-400">
           {{ formError }}
+          <NuxtLink v-if="notFound" to="/auth/register" class="font-bold underline">ثبت‌نام</NuxtLink>
         </p>
 
-        <UButton type="submit" color="primary" variant="solid" size="lg" block :loading="submitting" label="ورود" />
+        <UButton type="submit" color="primary" variant="solid" size="lg" block :loading="sending" label="دریافت کد تأیید" />
       </form>
 
-      <div v-else class="flex items-start gap-2.5 rounded-xl bg-sky-50 p-3.5 dark:bg-sky-400/10">
-        <Icon name="i-lucide-info" class="mt-0.5 size-4 shrink-0 text-sky-600 dark:text-sky-300" />
-        <p class="text-xs leading-5 text-slate-600 dark:text-slate-300">
-          ورود با کد یک‌بارمصرف به‌زودی فعال می‌شود. در نسخه نمایشی لطفاً از روش
-          <button type="button" class="font-bold text-teal-600 dark:text-teal-300" @click="selectMethod('password')">رمز عبور</button>
-          استفاده کنید.
-        </p>
-      </div>
+      <!-- مرحله ۲: کد تأیید -->
+      <OtpStep
+        v-else
+        ref="otpStep"
+        :phone="phone"
+        :dev-code="devCode"
+        :busy="verifying"
+        :resending="sending"
+        :error="formError"
+        submit-label="ورود"
+        @verify="verify"
+        @resend="sendCode"
+        @back="backToPhone"
+      />
     </AppCard>
 
     <!-- حساب‌های دمو -->
-    <AppCard>
+    <AppCard v-if="step === 'phone'">
       <p class="mb-2.5 flex items-center gap-1.5 text-xs font-bold text-slate-500 dark:text-slate-400">
         <Icon name="i-lucide-badge-check" class="size-3.5" />
-        ورود سریع با حساب‌های نمایشی (رمز: ۱۲۳۴)
+        شماره‌های نمایشی — بدون کلید پیامک، کد ورود {{ toPersianDigits(DEMO_OTP_CODE) }} است
       </p>
       <div class="grid grid-cols-2 gap-2">
         <button

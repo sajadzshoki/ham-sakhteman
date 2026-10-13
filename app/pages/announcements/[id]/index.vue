@@ -20,13 +20,18 @@ function onEdit() {
   router.push(`/announcements/${announcementId.value}/edit`)
 }
 
-function onDelete() {
+async function onDelete() {
   const target = announcement.value
   if (!target) return
-  removeImage(target.image)
-  store.removeAnnouncement(target.id)
-  toast.add({ title: 'اطلاعیه حذف شد', color: 'success' })
-  router.push('/announcements')
+  try {
+    await store.deleteAnnouncement(target.id)
+    removeImage(target.image)
+    toast.add({ title: 'اطلاعیه حذف شد', color: 'success' })
+    await router.push('/announcements')
+  }
+  catch (error) {
+    toast.add({ title: apiErrorMessage(error, 'حذف اطلاعیه انجام نشد'), color: 'error' })
+  }
 }
 </script>
 

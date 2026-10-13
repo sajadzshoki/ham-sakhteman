@@ -35,10 +35,15 @@ function statusLabel(status: ProblemStatus): string {
   return problemStatusFilters.find(item => item.id === status)?.label ?? status
 }
 
-function changeStatus(status: ProblemStatus) {
+async function changeStatus(status: ProblemStatus) {
   if (!problem.value || problem.value.status === status) return
-  store.updateProblemStatus(problem.value.id, status, user.value?.id)
-  toast.add({ title: `وضعیت گزارش به «${statusLabel(status)}» تغییر کرد`, color: 'success' })
+  try {
+    await store.updateProblemStatus(problem.value.id, status)
+    toast.add({ title: `وضعیت گزارش به «${statusLabel(status)}» تغییر کرد`, color: 'success' })
+  }
+  catch (error) {
+    toast.add({ title: apiErrorMessage(error, 'تغییر وضعیت انجام نشد'), color: 'error' })
+  }
 }
 </script>
 

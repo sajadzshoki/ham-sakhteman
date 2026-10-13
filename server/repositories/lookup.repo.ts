@@ -1,9 +1,9 @@
-import { and, eq } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import { getDb } from '../database/client'
-import { buildingMembers, buildings, users } from '../database/schema'
+import { buildingMembers, buildings, invitations, users } from '../database/schema'
 
-export async function findUserByEmail(email: string) {
-  const [row] = await getDb().select().from(users).where(eq(users.email, email)).limit(1)
+export async function findUserByPhone(phone: string) {
+  const [row] = await getDb().select().from(users).where(eq(users.phone, phone)).limit(1)
   return row ?? null
 }
 
@@ -22,10 +22,25 @@ export async function findBuildingByCode(code: string) {
   return row ?? null
 }
 
+export async function findInvitationByCode(code: string) {
+  const [row] = await getDb().select().from(invitations).where(eq(invitations.code, code)).limit(1)
+  return row ?? null
+}
+
 export async function findMembership(buildingId: string, userId: string) {
   const [row] = await getDb().select().from(buildingMembers).where(and(
     eq(buildingMembers.buildingId, buildingId),
     eq(buildingMembers.userId, userId),
   )).limit(1)
   return row ?? null
+}
+
+/** نام کاربران بر اساس شناسه (برای فیلدهای createdByName و ...) */
+export async function userNameMap(ids: Array<string | null | undefined>) {
+  const unique = [...new Set(ids.filter((id): id is string => Boolean(id)))]
+  const map = new Map<string, string>()
+  if (!unique.length) return map
+  const rows = await getDb().select({ id: users.id, name: users.name }).from(users).where(inArray(users.id, unique))
+  for (const row of rows) map.set(row.id, row.name)
+  return map
 }

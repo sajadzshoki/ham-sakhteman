@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { providerCategories, providerCategoryOf } from '~/data/mock'
-import { serviceProviders } from '~/data/providers'
 
 const { user } = useAuth()
 const store = useAppStore()
@@ -10,13 +9,20 @@ useSeoMeta({
   ogTitle: 'مدیریت کل',
 })
 
-const buildings = computed(() => store.buildings.value)
-const users = computed(() => store.users.value)
+// داده‌ها از `adminOverview` (پاسخ bootstrap سوپرادمین) می‌آیند
+const overview = computed(() => store.adminOverview.value)
+const buildings = computed(() => overview.value?.buildingList ?? [])
+const users = computed(() => overview.value?.userList ?? [])
+const providers = computed(() => overview.value?.providerList ?? [])
+
+function managerName(managerId: string) {
+  return users.value.find(person => person.id === managerId)?.name ?? '—'
+}
 
 const stats = computed(() => [
-  { label: 'ساختمان‌ها', value: buildings.value.length, icon: 'i-lucide-building-2', tint: 'bg-teal-50 text-teal-600 dark:bg-teal-400/10 dark:text-teal-300' },
-  { label: 'کاربران', value: users.value.length, icon: 'i-lucide-users', tint: 'bg-sky-50 text-sky-600 dark:bg-sky-400/10 dark:text-sky-300' },
-  { label: 'ارائه‌دهندگان خدمات', value: serviceProviders.length, icon: 'i-lucide-concierge-bell', tint: 'bg-violet-50 text-violet-600 dark:bg-violet-400/10 dark:text-violet-300' },
+  { label: 'ساختمان‌ها', value: overview.value?.buildings ?? buildings.value.length, icon: 'i-lucide-building-2', tint: 'bg-teal-50 text-teal-600 dark:bg-teal-400/10 dark:text-teal-300' },
+  { label: 'کاربران', value: overview.value?.users ?? users.value.length, icon: 'i-lucide-users', tint: 'bg-sky-50 text-sky-600 dark:bg-sky-400/10 dark:text-sky-300' },
+  { label: 'ارائه‌دهندگان خدمات', value: overview.value?.providers ?? providers.value.length, icon: 'i-lucide-concierge-bell', tint: 'bg-violet-50 text-violet-600 dark:bg-violet-400/10 dark:text-violet-300' },
   { label: 'دسته‌بندی خدمات', value: providerCategories.length, icon: 'i-lucide-layout-grid', tint: 'bg-amber-50 text-amber-600 dark:bg-amber-400/10 dark:text-amber-300' },
 ])
 </script>
@@ -56,13 +62,13 @@ const stats = computed(() => [
               <div class="flex items-center justify-between gap-2">
                 <p class="truncate text-sm font-bold text-slate-800 dark:text-slate-100">{{ building.name }}</p>
                 <span class="shrink-0 text-[11px] text-slate-400 dark:text-slate-500">
-                  {{ toPersianDigits(store.buildingMembers(building.id).length) }} عضو
+                  {{ toPersianDigits(building.memberCount) }} عضو
                 </span>
               </div>
               <p class="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">{{ building.address }}</p>
               <p class="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
-                {{ toPersianDigits(store.buildingUnits(building.id).length) }} واحد
-                • مدیر: {{ store.buildingManager(building.id)?.name ?? '—' }}
+                {{ toPersianDigits(building.unitsCount) }} واحد
+                • مدیر: {{ managerName(building.managerId) }}
               </p>
             </div>
           </div>
@@ -93,7 +99,7 @@ const stats = computed(() => [
       <SectionHeader title="ارائه‌دهندگان خدمات" />
       <AppCard padding="none">
         <ul class="divide-y divide-slate-100 dark:divide-slate-800">
-          <li v-for="provider in serviceProviders" :key="provider.id" class="flex items-center gap-3 px-4 py-3">
+          <li v-for="provider in providers" :key="provider.id" class="flex items-center gap-3 px-4 py-3">
             <span class="flex size-9 shrink-0 items-center justify-center rounded-xl" :class="providerCategoryOf(provider.category).tint">
               <Icon :name="providerCategoryOf(provider.category).icon" class="size-4.5" />
             </span>

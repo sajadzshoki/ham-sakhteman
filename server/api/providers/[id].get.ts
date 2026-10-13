@@ -1,5 +1,9 @@
-import { getRouterParam } from 'h3'
+import { getQuery, getRouterParam } from 'h3'
 import { getProvider } from '../../services/providers.service'
 import { defineApi } from '../../utils/api'
 
-export default defineApi(async (event) => getProvider(getRouterParam(event, 'id') ?? ''))
+export default defineApi(async (event) => getProvider(
+  getRouterParam(event, 'id') ?? '',
+  getQuery(event),
+  event.context.user ?? null,
+))

@@ -38,14 +38,25 @@ watch(open, (value) => {
   unitStatus.value = props.member.unitStatus ?? 'owner'
 })
 
-function submit() {
-  if (!props.member) return
-  store.assignMemberToUnit(props.member.id, unitId.value || null, unitId.value ? unitStatus.value : undefined)
-  toast.add({
-    title: unitId.value ? 'واحد به عضو تخصیص یافت' : 'عضو از واحد جدا شد',
-    color: 'success',
-  })
-  open.value = false
+const saving = ref(false)
+
+async function submit() {
+  if (!props.member || saving.value) return
+  saving.value = true
+  try {
+    await store.assignMemberToUnit(props.member.id, unitId.value || null, unitId.value ? unitStatus.value : undefined)
+    toast.add({
+      title: unitId.value ? 'واحد به عضو تخصیص یافت' : 'عضو از واحد جدا شد',
+      color: 'success',
+    })
+    open.value = false
+  }
+  catch (error) {
+    toast.add({ title: apiErrorMessage(error, 'تخصیص واحد انجام نشد'), color: 'error' })
+  }
+  finally {
+    saving.value = false
+  }
 }
 </script>
 
@@ -66,7 +77,7 @@ function submit() {
           :items="[{ label: 'مالک', value: 'owner' }, { label: 'مستأجر', value: 'tenant' }]"
         />
         <div class="flex w-full flex-row-reverse gap-2">
-          <UButton type="submit" color="primary" variant="solid" size="md" block label="ذخیره" />
+          <UButton type="submit" color="primary" variant="solid" size="md" block :loading="saving" label="ذخیره" />
           <UButton type="button" color="neutral" variant="soft" size="md" block label="انصراف" @click="open = false" />
         </div>
       </form>

@@ -25,7 +25,7 @@ const descriptionError = ref('')
 
 const saving = ref(false)
 
-function submit() {
+async function submit() {
   if (saving.value) return
   categoryError.value = category.value ? '' : 'دسته‌بندی مشکل را انتخاب کنید.'
   titleError.value = title.value.trim() ? '' : 'عنوان مشکل را وارد کنید.'
@@ -34,14 +34,25 @@ function submit() {
   if (!building.value || !user.value || !category.value) return
 
   saving.value = true
+  // تصویر فعلاً فقط مرجع محلی (`img:`) است تا آپلود سرور اضافه شود
   const imageKey = resolveImagePayload(image.value)
-  const report = store.createProblemReport(
-    building.value.id,
-    { category: category.value, title: title.value, description: description.value, image: imageKey },
-    { id: user.value.id, name: user.value.name },
-  )
-  toast.add({ title: 'گزارش شما ثبت شد؛ مدیر ساختمان آن را بررسی می‌کند', color: 'success' })
-  router.push(`/problems/${report.id}`)
+  try {
+    const report = await store.createProblemReport(building.value.id, {
+      category: category.value,
+      title: title.value,
+      description: description.value,
+      image: imageKey,
+    })
+    toast.add({ title: 'گزارش شما ثبت شد؛ مدیر ساختمان آن را بررسی می‌کند', color: 'success' })
+    await router.push(`/problems/${report.id}`)
+  }
+  catch (error) {
+    removeImage(imageKey)
+    toast.add({ title: apiErrorMessage(error, 'ثبت گزارش انجام نشد'), color: 'error' })
+  }
+  finally {
+    saving.value = false
+  }
 }
 
 function onCancel() {

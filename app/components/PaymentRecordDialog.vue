@@ -32,7 +32,7 @@ watch(open, (value) => {
   dateError.value = ''
 })
 
-function submit() {
+async function submit() {
   if (saving.value) return
   amountError.value = ''
   dateError.value = ''
@@ -51,22 +51,23 @@ function submit() {
 
   if (!user.value) return
   saving.value = true
-  const payment = store.recordPayment(
-    props.charge,
-    props.member,
-    { amount: parsedAmount, paidAt: isoDate, note: note.value },
-    { id: user.value.id },
-  )
-
-  if (!payment) {
-    saving.value = false
-    toast.add({ title: 'برای این عضو قبلاً پرداخت ثبت شده است', color: 'error' })
-    return
+  try {
+    await store.recordPayment(props.charge, props.member, {
+      amount: parsedAmount,
+      paidAt: isoDate,
+      note: note.value,
+    })
+    toast.add({ title: `پرداخت ${props.member.name} ثبت شد`, color: 'success' })
+    open.value = false
+    emit('saved')
   }
-
-  toast.add({ title: `پرداخت ${props.member.name} ثبت شد`, color: 'success' })
-  open.value = false
-  emit('saved')
+  catch (error) {
+    // پرداخت تکراری (۴۰۹) و سایر خطاها با پیام سرور نمایش داده می‌شوند
+    toast.add({ title: apiErrorMessage(error, 'ثبت پرداخت انجام نشد'), color: 'error' })
+  }
+  finally {
+    saving.value = false
+  }
 }
 </script>
 

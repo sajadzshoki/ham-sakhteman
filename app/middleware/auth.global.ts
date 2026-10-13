@@ -10,11 +10,27 @@ function isSuperAdminPath(path: string): boolean {
     || path === '/auth/register'
 }
 
-export default defineNuxtRouteMiddleware((to) => {
+export default defineNuxtRouteMiddleware(async (to) => {
   const store = useAppStore()
-  store.ensureSeeded()
+  const { user, ensureUser, pendingJoinCode } = useAuth()
 
-  const { user, pendingJoinCode } = useAuth()
+  // نشست را از کوکی HttpOnly بازیابی کن (در SSR با کوکی درخواست، یک‌بار در هر بازدید)
+  try {
+    await ensureUser()
+  }
+  catch {
+    // سرور موقتاً در دسترس نیست؛ مثل مهمان ادامه می‌دهیم تا صفحه‌ی ورود هم باز شود
+  }
+
+  // داده‌ی کاربر وارد‌شده (ساختمان، اعضا، ...) برای مسیرها لازم است
+  if (user.value) {
+    try {
+      await store.ensureLoaded()
+    }
+    catch {
+      // خطای بارگذاری: صفحات حالت «بدون ساختمان/در حال بارگذاری» را نشان می‌دهند
+    }
+  }
 
   // صفحات ورود برای کاربر لاگین‌شده در دسترس نیست
   if ((to.path === '/auth/login' || to.path === '/auth/register') && user.value) {

@@ -1,5 +1,7 @@
 # Backend — هم‌ساختمان
 
+> قدیمی است (ورود ایمیل/رمز و نقش `admin`). وضعیت فعلی را در [docs/CURRENT.md](./docs/CURRENT.md) بخوان.
+
 Nuxt Nitro server, PostgreSQL, and Drizzle. The SPA stays the UI. Domain data is no longer stored in `localStorage`.
 
 ## Architecture

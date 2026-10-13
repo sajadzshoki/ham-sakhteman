@@ -46,10 +46,15 @@ function askRemove(unit: BuildingUnit) {
   isRemoveDialogOpen.value = true
 }
 
-function confirmRemove() {
+async function confirmRemove() {
   if (!unitToRemove.value) return
-  store.removeUnit(unitToRemove.value.id)
-  toast.add({ title: 'واحد حذف شد', color: 'success' })
+  try {
+    await store.deleteUnit(unitToRemove.value.id)
+    toast.add({ title: 'واحد حذف شد', color: 'success' })
+  }
+  catch (error) {
+    toast.add({ title: apiErrorMessage(error, 'حذف واحد انجام نشد'), color: 'error' })
+  }
 }
 </script>
 

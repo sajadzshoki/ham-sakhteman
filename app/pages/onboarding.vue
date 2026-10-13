@@ -25,7 +25,10 @@ const nameError = ref('')
 const addressError = ref('')
 const unitsCountError = ref('')
 
-function submitBuilding() {
+const savingBuilding = ref(false)
+
+async function submitBuilding() {
+  if (savingBuilding.value) return
   nameError.value = ''
   addressError.value = ''
   unitsCountError.value = ''
@@ -46,32 +49,42 @@ function submitBuilding() {
 
   if (!user.value) return
 
-  if (building.value) {
-    store.updateBuilding(building.value.id, {
-      name: name.value.trim(),
-      address: address.value.trim(),
-      description: description.value.trim() || undefined,
-    })
-    if (store.buildingUnits(building.value.id).length !== count) {
-      store.replaceGeneratedUnits(building.value.id, count)
+  savingBuilding.value = true
+  try {
+    if (building.value) {
+      await store.updateBuilding(building.value.id, {
+        name: name.value.trim(),
+        address: address.value.trim(),
+        description: description.value.trim(),
+      })
+      if (store.buildingUnits(building.value.id).length !== count) {
+        await store.resizeUnits(building.value.id, count)
+      }
+      building.value = store.buildingById(building.value.id)
     }
-    building.value = store.buildingById(building.value.id)
+    else {
+      building.value = await store.createBuilding({
+        name: name.value,
+        address: address.value,
+        unitsCount: count,
+        description: description.value || undefined,
+      })
+    }
+    step.value = 1
   }
-  else {
-    building.value = store.createBuilding(
-      { name: name.value, address: address.value, unitsCount: count, description: description.value || undefined },
-      user.value,
-    )
+  catch (error) {
+    toast.add({ title: apiErrorMessage(error, 'ذخیره ساختمان انجام نشد'), color: 'error' })
   }
-
-  step.value = 1
+  finally {
+    savingBuilding.value = false
+  }
 }
 
 function editBuildingInfo() {
   if (!building.value) return
   name.value = building.value.name
   address.value = building.value.address
-  unitsCount.value = String(building.value.unitsCount)
+  unitsCount.value = String(store.buildingUnits(building.value.id).length)
   description.value = building.value.description ?? ''
   step.value = 0
 }
@@ -91,9 +104,15 @@ function openEditUnit(unit: BuildingUnit) {
 }
 
 // ——— مرحله ۳: دعوت ———
-function goToInviteStep() {
-  if (building.value && user.value && !invitation.value) {
-    invitation.value = store.createInvitation(building.value.id, 'resident', user.value.id)
+async function goToInviteStep() {
+  if (building.value && !invitation.value) {
+    try {
+      invitation.value = await store.createInvitation(building.value.id, 'resident')
+    }
+    catch (error) {
+      toast.add({ title: apiErrorMessage(error, 'ساخت کد دعوت انجام نشد'), color: 'error' })
+      return
+    }
   }
   step.value = 2
 }
@@ -142,7 +161,7 @@ function finish() {
           inputmode="numeric"
           dir="ltr"
           icon="i-lucide-door-open"
-          hint="واحدها به‌صورت خودکار ساخته می‌شوند (هر طبقه ۲ واحد)"
+          hint="واحدها به‌صورت خودکار ساخته می‌شوند (هر طبقه ۴ واحد)"
           :error="unitsCountError"
           @update:model-value="unitsCountError = ''"
         />
@@ -158,6 +177,7 @@ function finish() {
           variant="solid"
           size="lg"
           block
+          :loading="savingBuilding"
           :label="building ? 'ذخیره و ادامه' : 'ساخت ساختمان'"
         />
       </form>

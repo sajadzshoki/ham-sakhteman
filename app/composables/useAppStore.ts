@@ -6,115 +6,162 @@ import type {
   Building,
   BuildingCharge,
   BuildingMember,
-  BuildingUnit,
   BuildingRole,
+  BuildingUnit,
   ChargePayment,
   ChargeStatus,
+  ChargeWithPayments,
   Expense,
   ExpenseCategory,
   Invitation,
-  NotificationType,
   ProblemCategory,
   ProblemReport,
   ProblemStatus,
   ServiceProvider,
   UnitStatus,
 } from '~/types'
-import { serviceProviders } from '~/data/providers'
-import {
-  DEMO_ADMIN_ID,
-  DEMO_BUILDING_ID,
-  DEMO_MANAGER_ID,
-  DEMO_RESIDENT_ID,
-  seedAnnouncements,
-  seedBuildings,
-  seedCharges,
-  seedExpenses,
-  seedInvitations,
-  seedMembers,
-  seedPayments,
-  seedProblems,
-  seedTrustedProviderIds,
-  seedUnits,
-} from '~/data/seed'
+
+/** خلاصه‌ی پلتفرم برای سوپرادمین (`GET /api/admin/overview`) */
+export interface AdminOverview {
+  buildings: number
+  users: number
+  providers: number
+  announcements: number
+  problems: number
+  buildingList: Building[]
+  providerList: ServiceProvider[]
+  userList: AuthUser[]
+}
+
+/** پاسخ `GET /api/bootstrap` */
+interface BootstrapPayload {
+  user: AuthUser
+  buildings: Building[]
+  buildingId: string | null
+  units: BuildingUnit[]
+  members: BuildingMember[]
+  invitations: Invitation[]
+  announcements: Announcement[]
+  problems: ProblemReport[]
+  charges: ChargeWithPayments[]
+  expenses: Expense[]
+  notifications: AppNotification[]
+  providers: ServiceProvider[]
+  admin: AdminOverview | null
+}
+
+/** هر طبقه چند واحد دارد؛ با سرور (ساخت خودکار واحدها) هماهنگ است */
+const UNITS_PER_FLOOR = 4
+
+const sortByNewest = <T extends { createdAt: string }>(items: T[]) =>
+  [...items].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 
 /**
- * استور دامنه (ساختمان/واحدها/اعضا/دعوت‌نامه‌ها/شارژ/هزینه‌ها) با ذخیره‌سازی در کوکی.
- * کوکی‌ها در SSR هم قابل خواندن‌اند تا رندر سرور و کلاینت هم‌خوان بمانند.
- * در فاز بک‌اند واقعی، این لایه با فراخوانی API جایگزین می‌شود.
+ * استور دامنه (ساختمان/واحدها/اعضا/دعوت‌نامه‌ها/شارژ/هزینه‌ها/اعلان‌ها/خدمات).
+ * داده از `GET /api/bootstrap` می‌آید و در `useState` نگه داشته می‌شود (هم‌خوان در SSR و کلاینت)؛
+ * هر تغییر از طریق API انجام می‌شود و سپس استور از نو همگام می‌شود.
  */
 export function useAppStore() {
-  const refs = useStoreRefs()
-  const buildings = refs.buildings
-  const units = refs.units
-  const members = refs.members
-  const invitations = refs.invitations
-  const announcements = refs.announcements
-  const problems = refs.problems
-  const charges = refs.charges
-  const payments = refs.payments
-  const expenses = refs.expenses
-  const trustedProviders = refs.trustedProviders
-  const notifications = refs.notifications
-  const seeded = refs.seeded
+  const request = useApi()
+  const nuxtApp = useNuxtApp() as ReturnType<typeof useNuxtApp> & { _hamBootstrap?: Promise<void> | null }
+  const authUser = useAuthState()
 
-  // ——— بذرپاشی دیتای دمو ———
+  const loaded = useState<boolean>('store-loaded', () => false)
+  const buildingId = useState<string | null>('store-building-id', () => null)
+  const buildings = useState<Building[]>('store-buildings', () => [])
+  const units = useState<BuildingUnit[]>('store-units', () => [])
+  const members = useState<BuildingMember[]>('store-members', () => [])
+  const invitations = useState<Invitation[]>('store-invitations', () => [])
+  const announcements = useState<Announcement[]>('store-announcements', () => [])
+  const problems = useState<ProblemReport[]>('store-problems', () => [])
+  const charges = useState<ChargeWithPayments[]>('store-charges', () => [])
+  const expenses = useState<Expense[]>('store-expenses', () => [])
+  const notifications = useState<AppNotification[]>('store-notifications', () => [])
+  const providers = useState<ServiceProvider[]>('store-providers', () => [])
+  const adminOverview = useState<AdminOverview | null>('store-admin', () => null)
 
-  function ensureSeeded() {
-    if (seeded.value) return
+  /** همه‌ی پرداخت‌های ساختمان فعال (از شارژها استخراج می‌شود) */
+  const payments = computed<ChargePayment[]>(() => charges.value.flatMap(charge => charge.payments))
 
-    const demoUsers: AuthUser[] = [
-      {
-        id: DEMO_MANAGER_ID,
-        name: 'رضا احمدی',
-        phone: '09121112233',
-        role: 'manager',
-        password: '1234',
-        createdAt: daysAgo(200).toISOString(),
-      },
-      {
-        id: DEMO_RESIDENT_ID,
-        name: 'سارا محمدی',
-        phone: '09123456789',
-        role: 'resident',
-        password: '1234',
-        createdAt: daysAgo(200).toISOString(),
-      },
-      {
-        id: DEMO_ADMIN_ID,
-        name: 'نگار توکلی',
-        phone: '09120000000',
-        role: 'superadmin',
-        password: '1234',
-        createdAt: daysAgo(300).toISOString(),
-      },
-    ]
+  // ——— بارگذاری و همگام‌سازی ———
 
-    const knownIds = new Set(refs.users.value.map(item => item.id))
-    const knownPhones = new Set(refs.users.value.map(item => normalizePhone(item.phone)))
-    const missingUsers = demoUsers.filter(item => !knownIds.has(item.id) && !knownPhones.has(item.phone))
-    if (missingUsers.length > 0) {
-      refs.users.value = [...missingUsers, ...refs.users.value]
-    }
-
-    // فقط وقتی داده‌ای وجود ندارد بذر بکار؛ از دست رفتن کوکیِ «بذرپاشی‌شده» نباید ساختمان کاربر را پاک کند
-    if (buildings.value.length === 0) {
-      buildings.value = [...seedBuildings]
-      units.value = [...seedUnits]
-      members.value = [...seedMembers]
-      invitations.value = [...seedInvitations]
-      announcements.value = [...seedAnnouncements]
-      problems.value = [...seedProblems]
-      charges.value = [...seedCharges]
-      payments.value = [...seedPayments]
-      expenses.value = [...seedExpenses]
-    }
-    // «مورد اعتماد ساختمان» دمو؛ اگر کاربر قبلاً فهرستی برای این ساختمان ساخته، دست نمی‌خورد
-    if (!trustedProviders.value[DEMO_BUILDING_ID]) {
-      trustedProviders.value = { ...trustedProviders.value, [DEMO_BUILDING_ID]: [...seedTrustedProviderIds] }
-    }
-    seeded.value = true
+  function reset() {
+    loaded.value = false
+    buildingId.value = null
+    buildings.value = []
+    units.value = []
+    members.value = []
+    invitations.value = []
+    announcements.value = []
+    problems.value = []
+    charges.value = []
+    expenses.value = []
+    notifications.value = []
+    providers.value = []
+    adminOverview.value = null
   }
+
+  /** فراخوانی API؛ نشست منقضی (۴۰۱) کاربر محلی را پاک می‌کند */
+  async function call<T>(url: string, options?: Parameters<typeof request>[1]): Promise<T> {
+    try {
+      return await request<T>(url, options)
+    }
+    catch (error) {
+      if (error instanceof ApiRequestError && error.status === 401) {
+        authUser.value = null
+        reset()
+      }
+      throw error
+    }
+  }
+
+  function apply(payload: BootstrapPayload) {
+    authUser.value = payload.user
+    buildings.value = payload.buildings
+    buildingId.value = payload.buildingId
+    units.value = payload.units
+    members.value = payload.members
+    invitations.value = payload.invitations
+    announcements.value = payload.announcements
+    problems.value = payload.problems
+    charges.value = payload.charges
+    expenses.value = payload.expenses
+    notifications.value = payload.notifications
+    providers.value = payload.providers
+    adminOverview.value = payload.admin
+    loaded.value = true
+  }
+
+  /** بارگذاری مجدد کل داده‌ی کاربر از سرور */
+  async function refresh(targetBuildingId?: string) {
+    const payload = await call<BootstrapPayload>('/api/bootstrap', {
+      query: { buildingId: targetBuildingId ?? buildingId.value ?? undefined },
+    })
+    apply(payload)
+  }
+
+  /** پس از هر تغییر موفق: خطای بارگذاری مجدد نباید خودِ تغییر را ناموفق نشان دهد */
+  async function sync(targetBuildingId?: string) {
+    try {
+      await refresh(targetBuildingId)
+    }
+    catch {
+      // داده‌ی قبلی تا بارگذاری بعدی نمایش داده می‌شود
+    }
+  }
+
+  /** اگر کاربر وارد شده و داده هنوز بارگذاری نشده، یک‌بار بارگذاری می‌کند */
+  async function ensureLoaded() {
+    if (loaded.value || !authUser.value) return
+    if (!nuxtApp._hamBootstrap) {
+      nuxtApp._hamBootstrap = refresh().finally(() => {
+        nuxtApp._hamBootstrap = null
+      })
+    }
+    await nuxtApp._hamBootstrap
+  }
+
+  // ——— کوئری‌ها ———
 
   /** دسترسی مدیریت ساختمان از روی عضویت است، نه فقط نقشی که هنگام ثبت‌نام انتخاب شده */
   function isBuildingManager(user: AuthUser | null): boolean {
@@ -124,223 +171,215 @@ export function useAppStore() {
     return user.role === 'manager'
   }
 
-  // ——— کوئری‌ها ———
-
   function membershipOfUser(user: AuthUser | null): BuildingMember | null {
-    if (!user) return null
-    return members.value.find(member => member.userId === user.id) ?? null
+    if (!user || !buildingId.value) return null
+    return members.value.find(member => member.userId === user.id && member.buildingId === buildingId.value) ?? null
   }
 
+  /** ساختمان فعال کاربر (استور فقط داده‌ی ساختمان فعال را نگه می‌دارد) */
   function buildingOfUser(user: AuthUser | null): Building | null {
-    const membership = membershipOfUser(user)
-    if (!membership) return null
-    return buildings.value.find(building => building.id === membership.buildingId) ?? null
+    if (!user || user.role === 'superadmin' || !buildingId.value) return null
+    return buildings.value.find(building => building.id === buildingId.value) ?? null
   }
 
   const buildingById = (id: string) => buildings.value.find(building => building.id === id) ?? null
 
-  const buildingUnits = (buildingId: string) =>
+  const buildingUnits = (id: string) =>
     units.value
-      .filter(unit => unit.buildingId === buildingId)
+      .filter(unit => unit.buildingId === id)
       .sort((a, b) => a.number - b.number)
 
-  const buildingMembers = (buildingId: string) =>
-    members.value.filter(member => member.buildingId === buildingId)
+  const buildingMembers = (id: string) =>
+    members.value.filter(member => member.buildingId === id)
 
-  const buildingManager = (buildingId: string) =>
-    members.value.find(member => member.buildingId === buildingId && member.role === 'manager') ?? null
+  const buildingManager = (id: string) =>
+    members.value.find(member => member.buildingId === id && member.role === 'manager') ?? null
 
   const memberOfUnit = (unitId: string) =>
     members.value.find(member => member.unitId === unitId) ?? null
 
-  const residentCount = (buildingId: string) =>
-    members.value.filter(member => member.buildingId === buildingId && member.role === 'resident').length
+  const residentCount = (id: string) =>
+    members.value.filter(member => member.buildingId === id && member.role === 'resident').length
 
-  const floorCount = (buildingId: string) =>
-    buildingUnits(buildingId).reduce((max, unit) => Math.max(max, unit.floor), 0)
+  const floorCount = (id: string) =>
+    buildingUnits(id).reduce((max, unit) => Math.max(max, unit.floor), 0)
 
   // ——— ساختمان ———
 
-  function createBuilding(
-    input: { name: string; address: string; unitsCount: number; description?: string },
-    manager: AuthUser,
-  ): Building {
-    const building: Building = {
-      id: createId('b'),
-      name: input.name.trim(),
-      address: input.address.trim(),
-      unitsCount: input.unitsCount,
-      description: input.description?.trim() || undefined,
-      managerId: manager.id,
-      createdAt: new Date().toISOString(),
-    }
-    buildings.value = [...buildings.value, building]
-
-    // تولید خودکار واحدها: هر طبقه ۲ واحد
-    const generated: BuildingUnit[] = Array.from({ length: input.unitsCount }, (_, index) => ({
-      id: createId('u'),
-      buildingId: building.id,
-      number: index + 1,
-      floor: Math.floor(index / 2) + 1,
-    }))
-    units.value = [...units.value, ...generated]
-
-    const managerMember: BuildingMember = {
-      id: createId('m'),
-      buildingId: building.id,
-      userId: manager.id,
-      name: manager.name,
-      phone: manager.phone,
-      role: 'manager',
-      joinedAt: new Date().toISOString(),
-    }
-    members.value = [...members.value, managerMember]
-
-    return building
+  async function createBuilding(
+    input: { name: string, address: string, unitsCount: number, description?: string },
+  ): Promise<Building> {
+    const created = await call<Building>('/api/buildings', {
+      method: 'POST',
+      body: {
+        name: input.name.trim(),
+        address: input.address.trim(),
+        description: input.description?.trim() ?? '',
+        unitCount: input.unitsCount,
+      },
+    })
+    await sync(created.id)
+    return buildingById(created.id) ?? created
   }
 
-  function updateBuilding(id: string, patch: Partial<Pick<Building, 'name' | 'address' | 'unitsCount' | 'description'>>) {
-    buildings.value = buildings.value.map(building =>
-      building.id === id ? { ...building, ...patch } : building,
-    )
+  async function updateBuilding(
+    id: string,
+    patch: Partial<Pick<Building, 'name' | 'address' | 'description'>>,
+  ): Promise<Building> {
+    const updated = await call<Building>(`/api/buildings/${id}`, {
+      method: 'PATCH',
+      body: {
+        ...(patch.name !== undefined ? { name: patch.name.trim() } : {}),
+        ...(patch.address !== undefined ? { address: patch.address.trim() } : {}),
+        ...(patch.description !== undefined ? { description: patch.description.trim() } : {}),
+      },
+    })
+    await sync()
+    return buildingById(id) ?? updated
   }
 
   // ——— واحدها ———
 
-  function addUnit(buildingId: string, input: { number: number; floor: number }): BuildingUnit {
-    const unit: BuildingUnit = { id: createId('u'), buildingId, number: input.number, floor: input.floor }
-    units.value = [...units.value, unit]
-    syncUnitsCount(buildingId)
+  async function addUnit(id: string, input: { number: number, floor: number }): Promise<BuildingUnit> {
+    const unit = await call<BuildingUnit>(`/api/buildings/${id}/units`, { method: 'POST', body: { ...input } })
+    await sync()
     return unit
   }
 
-  function updateUnit(id: string, patch: Partial<Pick<BuildingUnit, 'number' | 'floor'>>) {
-    units.value = units.value.map(unit => (unit.id === id ? { ...unit, ...patch } : unit))
+  async function updateUnit(unitId: string, patch: Partial<Pick<BuildingUnit, 'number' | 'floor'>>): Promise<BuildingUnit> {
+    const current = units.value.find(unit => unit.id === unitId)
+    if (!current) throw new ApiRequestError('واحد پیدا نشد.', 404, 'NOT_FOUND')
+    const unit = await call<BuildingUnit>(`/api/buildings/${current.buildingId}/units/${unitId}`, {
+      method: 'PATCH',
+      body: { ...patch },
+    })
+    await sync()
+    return unit
   }
 
-  function syncUnitsCount(buildingId: string) {
-    updateBuilding(buildingId, {
-      unitsCount: units.value.filter(unit => unit.buildingId === buildingId).length,
-    })
+  async function deleteUnit(unitId: string): Promise<void> {
+    const current = units.value.find(unit => unit.id === unitId)
+    if (!current) return
+    await call(`/api/buildings/${current.buildingId}/units/${unitId}`, { method: 'DELETE' })
+    await sync()
   }
 
   /**
-   * بازتولید واحدهای خودکار آنبردینگ وقتی تعداد واحد در مرحله ساخت تغییر می‌کند.
-   * تخصیص واحدهای قبلی پاک می‌شود چون شماره واحدها از نو ساخته می‌شوند.
+   * هم‌اندازه‌کردن واحدهای ساخته‌شده‌ی آنبردینگ با تعداد جدید:
+   * واحدهای شماره‌ی بالاتر حذف یا واحدهای تازه با ترتیب طبقه‌بندی سرور اضافه می‌شوند.
    */
-  function replaceGeneratedUnits(buildingId: string, count: number) {
-    const generated: BuildingUnit[] = Array.from({ length: count }, (_, index) => ({
-      id: createId('u'),
-      buildingId,
-      number: index + 1,
-      floor: Math.floor(index / 2) + 1,
-    }))
-    units.value = [...units.value.filter(unit => unit.buildingId !== buildingId), ...generated]
-    members.value = members.value.map(member =>
-      member.buildingId === buildingId ? { ...member, unitId: undefined, unitStatus: undefined } : member,
-    )
-    syncUnitsCount(buildingId)
-  }
-
-  function removeUnit(id: string) {
-    const buildingId = units.value.find(unit => unit.id === id)?.buildingId
-    units.value = units.value.filter(unit => unit.id !== id)
-    // آزادسازی اعضای تخصیص‌یافته به واحد حذف‌شده
-    members.value = members.value.map(member =>
-      member.unitId === id ? { ...member, unitId: undefined, unitStatus: undefined } : member,
-    )
-    if (buildingId) syncUnitsCount(buildingId)
+  async function resizeUnits(id: string, count: number): Promise<void> {
+    const current = buildingUnits(id)
+    if (count > current.length) {
+      const last = current.reduce((max, unit) => Math.max(max, unit.number), 0)
+      for (let number = last + 1; number <= last + (count - current.length); number += 1) {
+        await call(`/api/buildings/${id}/units`, {
+          method: 'POST',
+          body: { number, floor: Math.ceil(number / UNITS_PER_FLOOR) },
+        })
+      }
+    }
+    else if (count < current.length) {
+      for (const unit of current.slice(count).reverse()) {
+        await call(`/api/buildings/${id}/units/${unit.id}`, { method: 'DELETE' })
+      }
+    }
+    await sync()
   }
 
   // ——— اعضا ———
 
-  function addMember(buildingId: string, input: {
+  async function addMember(id: string, input: {
     name: string
     phone?: string
     role: BuildingRole
     unitId?: string
     unitStatus?: UnitStatus
-  }): BuildingMember {
-    if (input.unitId) {
-      // هر واحد فقط یک عضو اصلی دارد
-      members.value = members.value.map(member =>
-        member.unitId === input.unitId ? { ...member, unitId: undefined, unitStatus: undefined } : member,
-      )
-    }
-    const member: BuildingMember = {
-      id: createId('m'),
-      buildingId,
-      name: input.name.trim(),
-      phone: input.phone ? (normalizePhone(input.phone) || undefined) : undefined,
-      role: input.role,
-      unitId: input.unitId || undefined,
-      unitStatus: input.unitId ? (input.unitStatus ?? 'owner') : undefined,
-      joinedAt: new Date().toISOString(),
-    }
-    members.value = [...members.value, member]
+  }): Promise<BuildingMember> {
+    const member = await call<BuildingMember>(`/api/buildings/${id}/members`, {
+      method: 'POST',
+      body: {
+        name: input.name.trim(),
+        ...(input.phone ? { phone: input.phone } : {}),
+        role: input.role,
+        ...(input.unitId ? { unitId: input.unitId, unitStatus: input.unitStatus ?? 'owner' } : {}),
+      },
+    })
+    await sync()
     return member
   }
 
-  function removeMember(id: string) {
-    members.value = members.value.filter(member => member.id !== id)
-  }
-
-  function assignMemberToUnit(memberId: string, unitId: string | null, unitStatus?: UnitStatus) {
-    members.value = members.value.map((member) => {
-      if (member.id === memberId) {
-        return unitId
-          ? { ...member, unitId, unitStatus: unitStatus ?? 'owner' }
-          : { ...member, unitId: undefined, unitStatus: undefined }
-      }
-      // واحد را از عضو قبلی جدا کن
-      if (unitId && member.unitId === unitId) {
-        return { ...member, unitId: undefined, unitStatus: undefined }
-      }
-      return member
+  async function updateMember(memberId: string, patch: {
+    name?: string
+    phone?: string | null
+    role?: BuildingRole
+    unitId?: string | null
+    unitStatus?: UnitStatus | null
+  }): Promise<BuildingMember> {
+    const current = members.value.find(member => member.id === memberId)
+    if (!current) throw new ApiRequestError('عضو پیدا نشد.', 404, 'NOT_FOUND')
+    const member = await call<BuildingMember>(`/api/buildings/${current.buildingId}/members/${memberId}`, {
+      method: 'PATCH',
+      body: { ...patch },
     })
+    await sync()
+    return member
   }
 
-  /** ویرایش پروفایل: نام کاربر در فهرست کاربران، نشست فعلی و عضویت‌ها به‌روز می‌شود */
-  function updateProfile(userId: string, name: string) {
-    const trimmed = name.trim()
-    if (!trimmed) return
-    refs.users.value = refs.users.value.map(item => (item.id === userId ? { ...item, name: trimmed } : item))
-    if (refs.user.value?.id === userId) {
-      refs.user.value = { ...refs.user.value, name: trimmed }
+  async function removeMember(memberId: string): Promise<void> {
+    const current = members.value.find(member => member.id === memberId)
+    if (!current) return
+    await call(`/api/buildings/${current.buildingId}/members/${memberId}`, { method: 'DELETE' })
+    await sync()
+  }
+
+  /** تخصیص (یا جداکردن با `unitId = null`) واحد به عضو؛ هر واحد فقط یک عضو اصلی دارد */
+  async function assignMemberToUnit(memberId: string, unitId: string | null, unitStatus?: UnitStatus): Promise<void> {
+    const target = members.value.find(member => member.id === memberId)
+    if (!target) return
+    const base = `/api/buildings/${target.buildingId}/members`
+    if (unitId) {
+      const previous = members.value.find(member => member.unitId === unitId && member.id !== memberId)
+      if (previous) {
+        await call(`${base}/${previous.id}`, { method: 'PATCH', body: { unitId: null } })
+      }
+      await call(`${base}/${memberId}`, { method: 'PATCH', body: { unitId, unitStatus: unitStatus ?? 'owner' } })
     }
-    members.value = members.value.map(member => (member.userId === userId ? { ...member, name: trimmed } : member))
+    else {
+      await call(`${base}/${memberId}`, { method: 'PATCH', body: { unitId: null } })
+    }
+    await sync()
+  }
+
+  /** ویرایش پروفایل: فقط نام قابل ویرایش است */
+  async function updateProfile(name: string): Promise<AuthUser | null> {
+    const trimmed = name.trim()
+    if (!trimmed) return null
+    const result = await call<{ user: AuthUser }>('/api/me', { method: 'PATCH', body: { name: trimmed } })
+    authUser.value = result.user
+    members.value = members.value.map(member => (member.userId === result.user.id ? { ...member, name: result.user.name } : member))
+    return result.user
   }
 
   // ——— دعوت‌نامه‌ها ———
 
-  function createInvitation(buildingId: string, role: BuildingRole, creatorId: string): Invitation {
-    const invitation: Invitation = {
-      id: createId('inv'),
-      buildingId,
-      code: generateInviteCode(),
-      role,
-      createdBy: creatorId,
-      createdAt: new Date().toISOString(),
-      expiresAt: daysAhead(365).toISOString(),
-      status: 'active',
-    }
-    invitations.value = [invitation, ...invitations.value]
+  async function createInvitation(id: string, role: BuildingRole): Promise<Invitation> {
+    const invitation = await call<Invitation>(`/api/buildings/${id}/invitations`, { method: 'POST', body: { role } })
+    await sync()
     return invitation
   }
 
-  function removeInvitation(id: string) {
-    invitations.value = invitations.value.filter(invitation => invitation.id !== id)
+  async function deleteInvitation(invitationId: string): Promise<void> {
+    const current = invitations.value.find(invitation => invitation.id === invitationId)
+    if (!current) return
+    await call(`/api/buildings/${current.buildingId}/invitations/${invitationId}`, { method: 'DELETE' })
+    await sync()
   }
 
-  const buildingInvitations = (buildingId: string) =>
+  const buildingInvitations = (id: string) =>
     invitations.value
-      .filter(invitation => invitation.buildingId === buildingId)
+      .filter(invitation => invitation.buildingId === id)
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-
-  function findInvitation(code: string): Invitation | null {
-    const normalized = normalizeInviteCode(code)
-    return invitations.value.find(invitation => invitation.code === normalized) ?? null
-  }
 
   /** وضعیت نمایشی دعوت‌نامه با درنظرگرفتن انقضا */
   function invitationDisplayStatus(invitation: Invitation): Invitation['status'] {
@@ -350,202 +389,136 @@ export function useAppStore() {
     return invitation.status
   }
 
-  /** پیوستن کاربر به ساختمان با کد دعوت */
-  function joinWithInvitation(code: string, user: AuthUser): { ok: true; building: Building } | { ok: false; error: 'invalid' | 'used' | 'expired' | 'duplicate' } {
-    const invitation = findInvitation(code)
-    if (!invitation) return { ok: false, error: 'invalid' }
-    if (invitation.status === 'used') return { ok: false, error: 'used' }
-    if (invitationDisplayStatus(invitation) === 'expired') return { ok: false, error: 'expired' }
-    if (invitation.status !== 'active') return { ok: false, error: 'invalid' }
-    const building = buildingById(invitation.buildingId)
-    if (!building) return { ok: false, error: 'invalid' }
-    if (membershipOfUser(user)) return { ok: false, error: 'duplicate' }
-
-    if (user.role !== 'superadmin' && user.role !== invitation.role) {
-      refs.users.value = refs.users.value.map(item =>
-        item.id === user.id ? { ...item, role: invitation.role } : item,
-      )
-      if (refs.user.value?.id === user.id) {
-        refs.user.value = { ...refs.user.value, role: invitation.role }
-      }
-    }
-
-    const member: BuildingMember = {
-      id: createId('m'),
-      buildingId: building.id,
-      userId: user.id,
-      name: user.name,
-      phone: user.phone,
-      role: invitation.role,
-      joinedAt: new Date().toISOString(),
-    }
-    members.value = [...members.value, member]
-    invitations.value = invitations.value.map(item =>
-      item.id === invitation.id ? { ...item, status: 'used' as const } : item,
-    )
-    return { ok: true, building }
+  /** پیوستن کاربر به ساختمان با کد دعوت؛ خطا (کد نامعتبر/استفاده‌شده/منقضی) پرتاب می‌شود */
+  async function joinWithInvitation(code: string): Promise<Building> {
+    const building = await call<Building>('/api/invitations/join', {
+      method: 'POST',
+      body: { code: normalizeInviteCode(code) },
+    })
+    await sync(building.id)
+    return buildingById(building.id) ?? building
   }
 
   // ——— اطلاعیه‌ها ———
 
-  const sortByNewest = <T extends { createdAt: string }>(items: T[]) =>
-    [...items].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-
-  const buildingAnnouncements = (buildingId: string) =>
-    sortByNewest(announcements.value.filter(item => item.buildingId === buildingId))
+  const buildingAnnouncements = (id: string) =>
+    sortByNewest(announcements.value.filter(item => item.buildingId === id))
 
   const getAnnouncement = (id: string) =>
     announcements.value.find(item => item.id === id) ?? null
 
-  function createAnnouncement(
-    buildingId: string,
-    input: { title: string; body: string; importance: AnnouncementImportance; image?: string },
-    author: { id: string; name: string },
-  ): Announcement {
-    const announcement: Announcement = {
-      id: createId('ann'),
-      buildingId,
-      title: input.title.trim(),
-      body: input.body.trim(),
-      importance: input.importance,
-      image: input.image || undefined,
-      createdBy: author.id,
-      createdByName: author.name,
-      createdAt: new Date().toISOString(),
-    }
-    announcements.value = [announcement, ...announcements.value]
-    pushNotifications(memberUserIds(buildingId, author.id), () => ({
-      type: announcement.importance === 'important' ? 'announcement-important' : 'announcement',
-      title: announcement.importance === 'important'
-        ? `اطلاعیه مهم: «${announcement.title}»`
-        : `اطلاعیه جدید: «${announcement.title}»`,
-      link: `/announcements/${announcement.id}`,
-    }))
+  async function createAnnouncement(
+    id: string,
+    input: { title: string, body: string, importance: AnnouncementImportance, image?: string },
+  ): Promise<Announcement> {
+    const announcement = await call<Announcement>(`/api/buildings/${id}/announcements`, {
+      method: 'POST',
+      body: {
+        title: input.title.trim(),
+        body: input.body.trim(),
+        importance: input.importance,
+        image: input.image ?? null,
+      },
+    })
+    await sync()
     return announcement
   }
 
-  function updateAnnouncement(
+  async function updateAnnouncement(
     id: string,
-    patch: Partial<Pick<Announcement, 'title' | 'body' | 'importance' | 'image'>>,
-  ) {
-    announcements.value = announcements.value.map((item) => {
-      if (item.id !== id) return item
-      const next = { ...item, ...patch, updatedAt: new Date().toISOString() }
-      if (!next.image) delete next.image
-      return next
+    patch: { title?: string, body?: string, importance?: AnnouncementImportance, image?: string | null },
+  ): Promise<Announcement> {
+    const announcement = await call<Announcement>(`/api/announcements/${id}`, {
+      method: 'PATCH',
+      body: {
+        ...(patch.title !== undefined ? { title: patch.title.trim() } : {}),
+        ...(patch.body !== undefined ? { body: patch.body.trim() } : {}),
+        ...(patch.importance !== undefined ? { importance: patch.importance } : {}),
+        ...(patch.image !== undefined ? { image: patch.image } : {}),
+      },
     })
+    await sync()
+    return announcement
   }
 
-  function removeAnnouncement(id: string) {
-    announcements.value = announcements.value.filter(item => item.id !== id)
+  async function deleteAnnouncement(id: string): Promise<void> {
+    await call(`/api/announcements/${id}`, { method: 'DELETE' })
+    await sync()
   }
 
   // ——— گزارش مشکلات ———
 
-  const buildingProblems = (buildingId: string) =>
-    sortByNewest(problems.value.filter(item => item.buildingId === buildingId))
+  const buildingProblems = (id: string) =>
+    sortByNewest(problems.value.filter(item => item.buildingId === id))
 
-  const problemsOfUser = (buildingId: string, userId: string) =>
-    buildingProblems(buildingId).filter(item => item.reportedBy === userId)
+  const problemsOfUser = (id: string, userId: string) =>
+    buildingProblems(id).filter(item => item.reportedBy === userId)
 
-  const openBuildingProblems = (buildingId: string) =>
-    buildingProblems(buildingId).filter(item => item.status !== 'resolved')
+  const openBuildingProblems = (id: string) =>
+    buildingProblems(id).filter(item => item.status !== 'resolved')
 
   const getProblem = (id: string) =>
     problems.value.find(item => item.id === id) ?? null
 
-  function createProblemReport(
-    buildingId: string,
-    input: { category: ProblemCategory; title: string; description: string; image?: string },
-    reporter: { id: string; name: string },
-  ): ProblemReport {
-    const report: ProblemReport = {
-      id: createId('pr'),
-      buildingId,
-      category: input.category,
-      title: input.title.trim(),
-      description: input.description.trim(),
-      image: input.image || undefined,
-      status: 'new',
-      reportedBy: reporter.id,
-      reportedByName: reporter.name,
-      createdAt: new Date().toISOString(),
-    }
-    problems.value = [report, ...problems.value]
-    const managerUserIds = members.value
-      .filter(member => member.buildingId === buildingId && member.role === 'manager' && member.userId && member.userId !== reporter.id)
-      .map(member => member.userId)
-    pushNotifications(managerUserIds, () => ({
-      type: 'problem-new',
-      title: `گزارش مشکل جدید: «${report.title}»`,
-      link: `/problems/${report.id}`,
-    }))
+  async function createProblemReport(
+    id: string,
+    input: { category: ProblemCategory, title: string, description: string, image?: string },
+  ): Promise<ProblemReport> {
+    const report = await call<ProblemReport>(`/api/buildings/${id}/problems`, {
+      method: 'POST',
+      body: {
+        category: input.category,
+        title: input.title.trim(),
+        description: input.description.trim(),
+        image: input.image ?? null,
+      },
+    })
+    await sync()
     return report
   }
 
-  const problemStatusLabels: Record<ProblemStatus, string> = {
-    new: 'جدید',
-    'in-progress': 'در حال پیگیری',
-    resolved: 'حل شده',
+  async function updateProblemStatus(id: string, status: ProblemStatus): Promise<ProblemReport | null> {
+    const current = problems.value.find(item => item.id === id)
+    if (!current || current.status === status) return current ?? null
+    const report = await call<ProblemReport>(`/api/problems/${id}`, { method: 'PATCH', body: { status } })
+    await sync()
+    return report
   }
 
-  function updateProblemStatus(id: string, status: ProblemStatus, actorId?: string) {
-    const problem = problems.value.find(item => item.id === id)
-    if (!problem || problem.status === status) return
-    problems.value = problems.value.map(item =>
-      item.id === id ? { ...item, status, updatedAt: new Date().toISOString() } : item,
-    )
-    pushNotifications([problem.reportedBy !== actorId ? problem.reportedBy : undefined], () => ({
-      type: 'problem-status',
-      title: `وضعیت گزارش «${problem.title}» تغییر کرد`,
-      body: `وضعیت جدید: ${problemStatusLabels[status]}`,
-      link: `/problems/${problem.id}`,
-    }))
-  }
-
-  function removeProblem(id: string) {
-    problems.value = problems.value.filter(item => item.id !== id)
+  async function deleteProblem(id: string): Promise<void> {
+    await call(`/api/problems/${id}`, { method: 'DELETE' })
+    await sync()
   }
 
   // ——— شارژ ———
 
-  const buildingCharges = (buildingId: string) =>
-    sortByNewest(charges.value.filter(item => item.buildingId === buildingId))
+  const buildingCharges = (id: string) =>
+    sortByNewest(charges.value.filter(item => item.buildingId === id))
 
   const getCharge = (id: string) =>
     charges.value.find(item => item.id === id) ?? null
 
-  function createCharge(
-    buildingId: string,
-    input: { title: string; period: string; amount: number; dueAt: string; notes?: string },
-    creator: { id: string; name: string },
-  ): BuildingCharge {
-    const charge: BuildingCharge = {
-      id: createId('ch'),
-      buildingId,
-      title: input.title.trim(),
-      period: input.period.trim(),
-      amount: input.amount,
-      dueAt: input.dueAt,
-      notes: input.notes?.trim() || undefined,
-      createdBy: creator.id,
-      createdByName: creator.name,
-      createdAt: new Date().toISOString(),
-    }
-    charges.value = [charge, ...charges.value]
-    pushNotifications(memberUserIds(buildingId, creator.id), () => ({
-      type: 'charge-new',
-      title: `شارژ جدید: ${charge.title} • ${charge.period}`,
-      body: `مبلغ سهم هر واحد: ${formatPrice(charge.amount)}`,
-      link: `/charges/${charge.id}`,
-    }))
+  async function createCharge(
+    id: string,
+    input: { title: string, period: string, amount: number, dueAt: string, notes?: string },
+  ): Promise<ChargeWithPayments> {
+    const charge = await call<ChargeWithPayments>(`/api/buildings/${id}/charges`, {
+      method: 'POST',
+      body: {
+        title: input.title.trim(),
+        period: input.period.trim(),
+        amount: input.amount,
+        dueAt: input.dueAt,
+        notes: input.notes?.trim() ?? '',
+      },
+    })
+    await sync()
     return charge
   }
 
-  function removeCharge(id: string) {
-    charges.value = charges.value.filter(item => item.id !== id)
-    // پرداخت‌های مرتبط با شارژ حذف‌شده نیز پاک می‌شوند
-    payments.value = payments.value.filter(payment => payment.chargeId !== id)
+  async function deleteCharge(id: string): Promise<void> {
+    await call(`/api/charges/${id}`, { method: 'DELETE' })
+    await sync()
   }
 
   /** آیا سررسید شارژ گذشته است؟ (مقایسه با ابتدای روز جاری) */
@@ -556,11 +529,11 @@ export function useAppStore() {
     return due.getTime() < today.getTime()
   }
 
-  const chargePayments = (chargeId: string) =>
-    payments.value.filter(payment => payment.chargeId === chargeId)
+  const chargePayments = (chargeId: string): ChargePayment[] =>
+    getCharge(chargeId)?.payments ?? []
 
   const paymentFor = (chargeId: string, memberId: string) =>
-    payments.value.find(payment => payment.chargeId === chargeId && payment.memberId === memberId) ?? null
+    chargePayments(chargeId).find(payment => payment.memberId === memberId) ?? null
 
   /** وضعیت پرداخت یک عضو برای یک شارژ: پرداخت‌شده، پرداخت‌نشده یا دیرکرد */
   function chargeStatusFor(charge: BuildingCharge, memberId: string): ChargeStatus {
@@ -571,125 +544,76 @@ export function useAppStore() {
   const chargePaidCount = (chargeId: string) => chargePayments(chargeId).length
 
   /** تعداد اعضای مشمول پرداخت در ساختمان (هر عضو یک سهم دارد) */
-  const chargePayerCount = (buildingId: string) => buildingMembers(buildingId).length
+  const chargePayerCount = (id: string) => buildingMembers(id).length
 
-  function recordPayment(
+  /** ثبت دستی پرداخت یک عضو برای شارژ (فقط مدیر)؛ پرداخت تکراری ۴۰۹ می‌دهد */
+  async function recordPayment(
     charge: BuildingCharge,
     member: BuildingMember,
-    input: { amount: number; paidAt: string; note?: string },
-    recorder: { id: string },
-  ): ChargePayment | null {
-    // هر عضو برای هر شارژ فقط یک رکورد پرداخت دارد
-    if (paymentFor(charge.id, member.id)) return null
-    const payment: ChargePayment = {
-      id: createId('pay'),
-      chargeId: charge.id,
-      memberId: member.id,
-      memberName: member.name,
-      amount: input.amount,
-      paidAt: input.paidAt,
-      note: input.note?.trim() || undefined,
-      method: 'manual',
-      recordedBy: recorder.id,
-    }
-    payments.value = [payment, ...payments.value]
-    pushNotifications([member.userId], () => ({
-      type: 'payment-recorded',
-      title: 'پرداخت شارژ شما ثبت شد',
-      body: `${charge.title} • ${charge.period}`,
-      link: `/charges/${charge.id}`,
-    }))
+    input: { amount: number, paidAt: string, note?: string },
+  ): Promise<ChargePayment> {
+    const payment = await call<ChargePayment>(`/api/charges/${charge.id}/payments`, {
+      method: 'POST',
+      body: {
+        memberId: member.id,
+        amount: input.amount,
+        paidAt: input.paidAt,
+        note: input.note?.trim() || null,
+      },
+    })
+    await sync()
     return payment
   }
 
-  function removePayment(id: string) {
-    payments.value = payments.value.filter(payment => payment.id !== id)
+  async function removePayment(paymentId: string): Promise<void> {
+    const owner = charges.value.find(charge => charge.payments.some(payment => payment.id === paymentId))
+    if (!owner) return
+    await call(`/api/charges/${owner.id}/payments/${paymentId}`, { method: 'DELETE' })
+    await sync()
   }
 
   /** شارژهای پرداخت‌نشده/دیرکردِ یک عضو برای داشبورد — نزدیک‌ترین سررسید اول */
-  function dueChargesForMember(buildingId: string, memberId: string): BuildingCharge[] {
-    return buildingCharges(buildingId)
+  function dueChargesForMember(id: string, memberId: string): BuildingCharge[] {
+    return buildingCharges(id)
       .filter(charge => chargeStatusFor(charge, memberId) !== 'paid')
       .sort((a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime())
   }
 
   // ——— هزینه‌ها ———
 
-  const buildingExpenses = (buildingId: string) =>
+  const buildingExpenses = (id: string) =>
     expenses.value
-      .filter(item => item.buildingId === buildingId)
+      .filter(item => item.buildingId === id)
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
   const getExpense = (id: string) =>
     expenses.value.find(item => item.id === id) ?? null
 
-  function createExpense(
-    buildingId: string,
-    input: {
-      title: string
-      amount: number
-      category: ExpenseCategory
-      date: string
-      notes?: string
-      receipt?: string
-    },
-    creator: { id: string; name: string },
-  ): Expense {
-    const expense: Expense = {
-      id: createId('ex'),
-      buildingId,
-      title: input.title.trim(),
-      amount: input.amount,
-      category: input.category,
-      date: input.date,
-      notes: input.notes?.trim() || undefined,
-      receipt: input.receipt || undefined,
-      createdBy: creator.id,
-      createdByName: creator.name,
-      createdAt: new Date().toISOString(),
-    }
-    expenses.value = [expense, ...expenses.value]
+  async function createExpense(
+    id: string,
+    input: { title: string, amount: number, category: ExpenseCategory, date: string, notes?: string, receipt?: string },
+  ): Promise<Expense> {
+    const expense = await call<Expense>(`/api/buildings/${id}/expenses`, {
+      method: 'POST',
+      body: {
+        title: input.title.trim(),
+        amount: input.amount,
+        category: input.category,
+        date: input.date,
+        notes: input.notes?.trim() ?? '',
+        receipt: input.receipt ?? null,
+      },
+    })
+    await sync()
     return expense
   }
 
-  function removeExpense(id: string) {
-    expenses.value = expenses.value.filter(item => item.id !== id)
+  async function deleteExpense(id: string): Promise<void> {
+    await call(`/api/expenses/${id}`, { method: 'DELETE' })
+    await sync()
   }
 
   // ——— اعلان‌ها ———
-
-  /** سقف اعلان‌های هر کاربر؛ داده در localStorage است و سهم کاربران دیگر را پاک نمی‌کند */
-  const NOTIFICATION_CAP = 8
-
-  /** ایجاد اعلان برای کاربران مقصد (بدون اعلان به خودِ انجام‌دهنده عمل) */
-  function pushNotifications(
-    userIds: (string | undefined)[],
-    build: () => { type: NotificationType, title: string, body?: string, link?: string },
-  ) {
-    const targets = [...new Set(userIds.filter((id): id is string => Boolean(id)))]
-    if (targets.length === 0) return
-    const created: AppNotification[] = targets.map(userId => ({
-      id: createId('ntf'),
-      userId,
-      ...build(),
-      createdAt: new Date().toISOString(),
-    }))
-    const seen = new Map<string, number>()
-    const kept: AppNotification[] = []
-    for (const item of [...created, ...notifications.value]) {
-      const count = seen.get(item.userId) ?? 0
-      if (count >= NOTIFICATION_CAP) continue
-      seen.set(item.userId, count + 1)
-      kept.push(item)
-    }
-    notifications.value = kept
-  }
-
-  /** شناسه کاربران دارای حساب در ساختمان (به‌جز انجام‌دهنده عمل) */
-  const memberUserIds = (buildingId: string, exceptUserId?: string) =>
-    members.value
-      .filter(member => member.buildingId === buildingId && member.userId && member.userId !== exceptUserId)
-      .map(member => member.userId)
 
   const notificationsFor = (userId: string) =>
     notifications.value
@@ -699,51 +623,67 @@ export function useAppStore() {
   const unreadNotifications = (userId: string) =>
     notificationsFor(userId).filter(item => !item.readAt)
 
-  function markNotificationRead(id: string) {
-    notifications.value = notifications.value.map(item =>
-      item.id === id && !item.readAt ? { ...item, readAt: new Date().toISOString() } : item,
-    )
+  /** خوانده‌شدن فوری در UI نشان داده می‌شود و در صورت خطا برمی‌گردد */
+  async function markNotificationRead(id: string): Promise<void> {
+    const previous = notifications.value
+    const target = previous.find(item => item.id === id)
+    if (!target || target.readAt) return
+    const now = new Date().toISOString()
+    notifications.value = previous.map(item => (item.id === id ? { ...item, readAt: now } : item))
+    try {
+      await call(`/api/notifications/${id}`, { method: 'PATCH', body: { read: true } })
+    }
+    catch (error) {
+      notifications.value = previous
+      throw error
+    }
   }
 
-  function markAllNotificationsRead(userId: string) {
+  async function markAllNotificationsRead(): Promise<void> {
+    const previous = notifications.value
     const now = new Date().toISOString()
-    notifications.value = notifications.value.map(item =>
-      item.userId === userId && !item.readAt ? { ...item, readAt: now } : item,
-    )
+    notifications.value = previous.map(item => (item.readAt ? item : { ...item, readAt: now }))
+    try {
+      await call('/api/notifications/read-all', { method: 'POST' })
+    }
+    catch (error) {
+      notifications.value = previous
+      throw error
+    }
   }
 
   // ——— خدمات ساختمان (دایره ارائه‌دهندگان) ———
 
-  const allProviders = (): ServiceProvider[] => serviceProviders
+  const allProviders = (): ServiceProvider[] => providers.value
 
   const getProvider = (id: string): ServiceProvider | null =>
-    serviceProviders.find(provider => provider.id === id) ?? null
+    providers.value.find(provider => provider.id === id) ?? null
 
-  /** شناسه ارائه‌دهندگان «مورد اعتماد» یک ساختمان */
-  const trustedProviderIds = (buildingId: string): string[] =>
-    trustedProviders.value[buildingId] ?? []
+  /** «مورد اعتماد ساختمان» بودن از سرور و برای ساختمان فعال می‌آید */
+  const isProviderTrusted = (_buildingId: string, providerId: string): boolean =>
+    getProvider(providerId)?.trusted === true
 
-  const isProviderTrusted = (buildingId: string, providerId: string): boolean =>
-    trustedProviderIds(buildingId).includes(providerId)
+  async function setProviderTrusted(id: string, providerId: string, trusted: boolean): Promise<boolean> {
+    const result = await call<ServiceProvider>(`/api/buildings/${id}/providers/${providerId}`, {
+      method: 'PATCH',
+      body: { trusted },
+    })
+    providers.value = providers.value.map(provider =>
+      provider.id === providerId ? { ...provider, trusted: result.trusted ?? trusted } : provider,
+    )
+    return result.trusted ?? trusted
+  }
 
-  /**
-   * نشان‌گذاری/برداشتن «مورد اعتماد ساختمان» توسط مدیر؛
-   * فهرست به‌صورت شناسه‌ها ذخیره می‌شود تا کوکی کوچک بماند.
-   */
-  function toggleProviderTrusted(buildingId: string, providerId: string): boolean {
-    const current = trustedProviderIds(buildingId)
-    const next = current.includes(providerId)
-      ? current.filter(id => id !== providerId)
-      : [...current, providerId]
-    trustedProviders.value = { ...trustedProviders.value, [buildingId]: next }
-    return next.includes(providerId)
+  /** نشان‌گذاری/برداشتن «مورد اعتماد ساختمان» توسط مدیر؛ مقدار جدید را برمی‌گرداند */
+  function toggleProviderTrusted(id: string, providerId: string): Promise<boolean> {
+    return setProviderTrusted(id, providerId, !isProviderTrusted(id, providerId))
   }
 
   /** فهرست مرتب‌شده: موارد مورد اعتماد اول و سپس امتیاز بیشتر */
-  function sortedProviders(buildingId: string): ServiceProvider[] {
-    return [...serviceProviders].sort((a, b) => {
-      const trustedA = isProviderTrusted(buildingId, a.id) ? 1 : 0
-      const trustedB = isProviderTrusted(buildingId, b.id) ? 1 : 0
+  function sortedProviders(id: string): ServiceProvider[] {
+    return [...providers.value].sort((a, b) => {
+      const trustedA = isProviderTrusted(id, a.id) ? 1 : 0
+      const trustedB = isProviderTrusted(id, b.id) ? 1 : 0
       if (trustedA !== trustedB) return trustedB - trustedA
       return b.rating - a.rating
     })
@@ -755,16 +695,13 @@ export function useAppStore() {
    * خلاصه مالی ساختمان برای «شفافیت مالی»: درآمد شارژ، مجموع هزینه‌ها، مانده،
    * تعداد سهم‌های پرداخت‌شده/پرداخت‌نشده و هزینه‌های اخیر.
    */
-  function financialSummary(buildingId: string) {
-    const buildingPayments = payments.value.filter(payment => {
-      const charge = getCharge(payment.chargeId)
-      return charge?.buildingId === buildingId
-    })
-    const buildingChargesList = buildingCharges(buildingId)
-    const payerCount = chargePayerCount(buildingId)
+  function financialSummary(id: string) {
+    const buildingChargesList = buildingCharges(id)
+    const buildingPayments = buildingChargesList.flatMap(charge => charge.payments)
+    const payerCount = chargePayerCount(id)
 
     const income = buildingPayments.reduce((sum, payment) => sum + payment.amount, 0)
-    const expensesTotal = buildingExpenses(buildingId).reduce((sum, item) => sum + item.amount, 0)
+    const expensesTotal = buildingExpenses(id).reduce((sum, item) => sum + item.amount, 0)
     const expectedItems = buildingChargesList.length * payerCount
     const paidItems = buildingPayments.length
 
@@ -775,11 +712,14 @@ export function useAppStore() {
       paidItems,
       unpaidItems: Math.max(0, expectedItems - paidItems),
       expectedItems,
-      recentExpenses: buildingExpenses(buildingId).slice(0, 3),
+      recentExpenses: buildingExpenses(id).slice(0, 3),
     }
   }
 
   return {
+    // state
+    loaded,
+    buildingId,
     buildings,
     units,
     members,
@@ -789,7 +729,14 @@ export function useAppStore() {
     charges,
     payments,
     expenses,
-    ensureSeeded,
+    notifications,
+    providers,
+    adminOverview,
+    // loading
+    ensureLoaded,
+    refresh,
+    reset,
+    // queries
     isBuildingManager,
     membershipOfUser,
     buildingOfUser,
@@ -800,37 +747,43 @@ export function useAppStore() {
     memberOfUnit,
     residentCount,
     floorCount,
+    // building / units / members
     createBuilding,
     updateBuilding,
     addUnit,
     updateUnit,
-    removeUnit,
-    replaceGeneratedUnits,
+    deleteUnit,
+    resizeUnits,
     addMember,
+    updateMember,
     removeMember,
     assignMemberToUnit,
+    updateProfile,
+    // invitations
     createInvitation,
-    removeInvitation,
+    deleteInvitation,
     buildingInvitations,
-    findInvitation,
     invitationDisplayStatus,
     joinWithInvitation,
+    // announcements
     buildingAnnouncements,
     getAnnouncement,
     createAnnouncement,
     updateAnnouncement,
-    removeAnnouncement,
+    deleteAnnouncement,
+    // problems
     buildingProblems,
     problemsOfUser,
     openBuildingProblems,
     getProblem,
     createProblemReport,
     updateProblemStatus,
-    removeProblem,
+    deleteProblem,
+    // charges
     buildingCharges,
     getCharge,
     createCharge,
-    removeCharge,
+    deleteCharge,
     isChargePastDue,
     chargePayments,
     paymentFor,
@@ -840,22 +793,23 @@ export function useAppStore() {
     recordPayment,
     removePayment,
     dueChargesForMember,
+    // expenses
     buildingExpenses,
     getExpense,
     createExpense,
-    removeExpense,
+    deleteExpense,
     financialSummary,
+    // providers
     allProviders,
     getProvider,
-    trustedProviderIds,
     isProviderTrusted,
+    setProviderTrusted,
     toggleProviderTrusted,
     sortedProviders,
-    users: refs.users,
+    // notifications
     notificationsFor,
     unreadNotifications,
     markNotificationRead,
     markAllNotificationsRead,
-    updateProfile,
   }
 }

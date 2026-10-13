@@ -31,12 +31,18 @@ function askDelete(expense: Expense) {
   isDeleteOpen.value = true
 }
 
-function confirmDelete() {
-  if (!deletingExpense.value) return
-  removeImage(deletingExpense.value.receipt)
-  store.removeExpense(deletingExpense.value.id)
-  toast.add({ title: 'هزینه حذف شد', color: 'success' })
+async function confirmDelete() {
+  const target = deletingExpense.value
+  if (!target) return
   deletingExpense.value = null
+  try {
+    await store.deleteExpense(target.id)
+    removeImage(target.receipt)
+    toast.add({ title: 'هزینه حذف شد', color: 'success' })
+  }
+  catch (error) {
+    toast.add({ title: apiErrorMessage(error, 'حذف هزینه انجام نشد'), color: 'error' })
+  }
 }
 
 function goNew() {

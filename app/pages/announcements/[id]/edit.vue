@@ -16,20 +16,29 @@ useSeoMeta({
 
 const saving = ref(false)
 
-function onSubmit(payload: { title: string; body: string; importance: AnnouncementImportance; image: string | undefined }) {
+async function onSubmit(payload: { title: string; body: string; importance: AnnouncementImportance; image: string | undefined }) {
   if (saving.value) return
   const target = announcement.value
   if (!target) return
   saving.value = true
   const imageKey = resolveImagePayload(payload.image, target.image)
-  store.updateAnnouncement(target.id, {
-    title: payload.title,
-    body: payload.body,
-    importance: payload.importance,
-    image: imageKey,
-  })
-  toast.add({ title: 'اطلاعیه به‌روزرسانی شد', color: 'success' })
-  router.push(`/announcements/${target.id}`)
+  try {
+    await store.updateAnnouncement(target.id, {
+      title: payload.title,
+      body: payload.body,
+      importance: payload.importance,
+      // null یعنی حذف تصویر
+      image: imageKey ?? null,
+    })
+    toast.add({ title: 'اطلاعیه به‌روزرسانی شد', color: 'success' })
+    await router.push(`/announcements/${target.id}`)
+  }
+  catch (error) {
+    toast.add({ title: apiErrorMessage(error, 'ذخیره اطلاعیه انجام نشد'), color: 'error' })
+  }
+  finally {
+    saving.value = false
+  }
 }
 
 function onCancel() {

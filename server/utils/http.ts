@@ -1,7 +1,7 @@
 import type { H3Event } from 'h3'
 import { deleteCookie, getCookie, getRequestIP, setCookie } from 'h3'
-import { ApiError } from './errors'
 import { sessionTtlMs } from './env'
+import { consumeRateLimit } from './rate-limit'
 
 export const SESSION_COOKIE = 'hs_session'
 
@@ -33,26 +33,8 @@ export function clearSessionCookie(event: H3Event) {
   deleteCookie(event, SESSION_COOKIE, { path: '/' })
 }
 
-const buckets = new Map<string, { count: number, reset: number }>()
-
-export function resetRateLimits() {
-  buckets.clear()
-}
-
-export function consumeRateLimit(key: string, limit = 10, windowMs = 60_000) {
-  const now = Date.now()
-  const current = buckets.get(key)
-  if (!current || current.reset <= now) {
-    buckets.set(key, { count: 1, reset: now + windowMs })
-    return
-  }
-  current.count += 1
-  if (current.count > limit) {
-    throw new ApiError(429, 'RATE_LIMITED', 'تعداد درخواست‌ها بیش از حد مجاز است. کمی بعد دوباره تلاش کنید.')
-  }
-}
-
 export function assertRateLimit(event: H3Event, action: string, limit = 10, windowMs = 60_000) {
-  const ip = getRequestIP(event, { xForwardedFor: false }) || 'unknown'
+  // پشت پراکسی، آی‌پی واقعی در X-Forwarded-For است؛ محدودیت اصلی OTP روی شماره‌ی موبایل هم اعمال می‌شود
+  const ip = getRequestIP(event, { xForwardedFor: true }) || 'unknown'
   consumeRateLimit(`${action}:${ip}`, limit, windowMs)
 }

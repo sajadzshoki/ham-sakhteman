@@ -35,7 +35,10 @@ watch(open, (value) => {
   floorError.value = ''
 })
 
-function submit() {
+const saving = ref(false)
+
+async function submit() {
+  if (saving.value) return
   numberError.value = ''
   floorError.value = ''
 
@@ -59,17 +62,26 @@ function submit() {
     return
   }
 
-  if (isEdit.value && props.unit) {
-    store.updateUnit(props.unit.id, { number: unitNumber, floor: unitFloor })
-    toast.add({ title: 'واحد به‌روزرسانی شد', color: 'success' })
+  saving.value = true
+  try {
+    if (isEdit.value && props.unit) {
+      await store.updateUnit(props.unit.id, { number: unitNumber, floor: unitFloor })
+      toast.add({ title: 'واحد به‌روزرسانی شد', color: 'success' })
+    }
+    else {
+      await store.addUnit(props.buildingId, { number: unitNumber, floor: unitFloor })
+      toast.add({ title: 'واحد اضافه شد', color: 'success' })
+    }
+    open.value = false
+    emit('saved')
   }
-  else {
-    store.addUnit(props.buildingId, { number: unitNumber, floor: unitFloor })
-    toast.add({ title: 'واحد اضافه شد', color: 'success' })
+  catch (error) {
+    // مثلاً شماره واحد تکراری (۴۰۹) از سمت سرور
+    numberError.value = apiErrorMessage(error, 'ذخیره واحد انجام نشد.')
   }
-
-  open.value = false
-  emit('saved')
+  finally {
+    saving.value = false
+  }
 }
 </script>
 
@@ -102,7 +114,7 @@ function submit() {
           />
         </div>
         <div class="flex w-full flex-row-reverse gap-2">
-          <UButton type="submit" color="primary" variant="solid" size="md" block :label="isEdit ? 'ذخیره تغییرات' : 'افزودن واحد'" />
+          <UButton type="submit" color="primary" variant="solid" size="md" block :loading="saving" :label="isEdit ? 'ذخیره تغییرات' : 'افزودن واحد'" />
           <UButton type="button" color="neutral" variant="soft" size="md" block label="انصراف" @click="open = false" />
         </div>
       </form>

@@ -24,7 +24,7 @@ const dueAtError = ref('')
 
 const saving = ref(false)
 
-function submit() {
+async function submit() {
   if (saving.value) return
   titleError.value = title.value.trim() ? '' : 'عنوان شارژ را وارد کنید.'
   periodError.value = period.value.trim() ? '' : 'دوره شارژ را وارد کنید.'
@@ -40,13 +40,23 @@ function submit() {
 
   saving.value = true
 
-  const charge = store.createCharge(
-    building.value.id,
-    { title: title.value, period: period.value, amount: parsedAmount, dueAt: isoDate, notes: notes.value },
-    { id: user.value.id, name: user.value.name },
-  )
-  toast.add({ title: 'شارژ ایجاد شد و ساکنین آن را می‌بینند', color: 'success' })
-  router.push(`/charges/${charge.id}`)
+  try {
+    const charge = await store.createCharge(building.value.id, {
+      title: title.value,
+      period: period.value,
+      amount: parsedAmount,
+      dueAt: isoDate,
+      notes: notes.value,
+    })
+    toast.add({ title: 'شارژ ایجاد شد و ساکنین آن را می‌بینند', color: 'success' })
+    await router.push(`/charges/${charge.id}`)
+  }
+  catch (error) {
+    toast.add({ title: apiErrorMessage(error, 'ایجاد شارژ انجام نشد'), color: 'error' })
+  }
+  finally {
+    saving.value = false
+  }
 }
 
 function onCancel() {

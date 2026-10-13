@@ -1,5 +1,7 @@
 # مدل داده هم‌ساختمان
 
+> قدیمی است (استور کوکی `useStoreRefs`). مدل فعلی Postgres و API در [CURRENT.md](./CURRENT.md) است.
+
 این سند معماری داده **فعلی** اپ را مستند می‌کند (نه یک طراحی آرمانی). همه موارد
 زیر از روی کد واقعی (`app/types/index.ts`، `app/composables/useStoreRefs.ts`،
 `app/composables/useAppStore.ts`، `app/data/*`) استخراج شده‌اند.

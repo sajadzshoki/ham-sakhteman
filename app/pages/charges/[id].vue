@@ -68,21 +68,32 @@ function askDeletePayment(paymentId: string) {
   isDeletePaymentOpen.value = true
 }
 
-function confirmDeletePayment() {
+async function confirmDeletePayment() {
   if (!deletingPaymentId.value) return
-  store.removePayment(deletingPaymentId.value)
-  toast.add({ title: 'رکورد پرداخت حذف شد', color: 'success' })
+  const paymentId = deletingPaymentId.value
   deletingPaymentId.value = null
+  try {
+    await store.removePayment(paymentId)
+    toast.add({ title: 'رکورد پرداخت حذف شد', color: 'success' })
+  }
+  catch (error) {
+    toast.add({ title: apiErrorMessage(error, 'حذف پرداخت انجام نشد'), color: 'error' })
+  }
 }
 
 // ——— حذف شارژ (مدیر) ———
 const isDeleteChargeOpen = ref(false)
 
-function confirmDeleteCharge() {
+async function confirmDeleteCharge() {
   if (!charge.value) return
-  store.removeCharge(charge.value.id)
-  toast.add({ title: 'شارژ حذف شد', color: 'success' })
-  router.push('/charges')
+  try {
+    await store.deleteCharge(charge.value.id)
+    toast.add({ title: 'شارژ حذف شد', color: 'success' })
+    await router.push('/charges')
+  }
+  catch (error) {
+    toast.add({ title: apiErrorMessage(error, 'حذف شارژ انجام نشد'), color: 'error' })
+  }
 }
 </script>
 
