@@ -1,12 +1,12 @@
 <script setup lang="ts">
 const { t } = useI18n()
 const auth = useAuth()
-const { buildings } = useBuildings()
+const { resolveBuildingId, isBuildingManager } = useBuildings()
 const { getByBuilding, createCharge, updateCharge, loading, loadError, refresh } = useFinance()
 const route = useRoute()
-const bId = computed(() => (route.query.buildingId as string) || buildings.value[0]?.id || 'b-1')
-const list = computed(() => getByBuilding(bId.value))
-const isMgr = computed(() => auth.isManager || (buildings.value.find(b => b.id === bId.value)?.managerId === (auth.user as any)?.id))
+const bId = computed(() => resolveBuildingId(route.query.buildingId as string))
+const list = computed(() => bId.value ? getByBuilding(bId.value) : [])
+const isMgr = computed(() => isBuildingManager(bId.value))
 
 const showForm = ref(false)
 const title = ref('')
@@ -19,9 +19,12 @@ const formError = ref('')
 
 const submit = async () => {
   formError.value = ''
-  if (!title.value.trim() || amount.value <= 0) return
+  if (!title.value.trim() || amount.value <= 0 || !bId.value) {
+    formError.value = !bId.value ? 'ابتدا یک ساختمان انتخاب کنید' : 'عنوان و مبلغ الزامی است'
+    return
+  }
   try {
-    await createCharge({ buildingId: bId.value, title: title.value, amount: amount.value, period: period.value, dueDate: due.value, description: desc.value, createdBy: (auth.user as any)?.id || 'system' })
+    await createCharge({ buildingId: bId.value, title: title.value, amount: amount.value, period: period.value, dueDate: due.value, description: desc.value, createdBy: auth.user?.id || '' })
     title.value = ''; amount.value = 0; period.value = ''; due.value = ''; desc.value = ''; showForm.value = false
   } catch (error) {
     formError.value = apiErrorMessage(error, 'ثبت شارژ ناموفق بود')

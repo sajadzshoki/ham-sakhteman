@@ -74,11 +74,11 @@ export const useAuth = () => {
   const logout = async () => {
     await $fetch('/api/auth/logout', { method: 'POST' }).catch(() => undefined)
     setUser(null)
-    sessionPromise = Promise.resolve()
+    sessionPromise = null
     ready.value = true
     const { useAppData } = await import('./useAppData')
     useAppData().clearDomain()
-    await navigateTo('/')
+    await navigateTo('/login')
   }
 
   return reactive({
@@ -86,8 +86,9 @@ export const useAuth = () => {
     set user(value: User | null) { user.value = value },
     get ready() { return ready.value },
     get isAuthenticated() { return !!user.value },
-    get isManager() { return user.value?.role === 'manager' },
+    get isManager() { return user.value?.role === 'manager' || user.value?.role === 'admin' },
     get isResident() { return user.value?.role === 'resident' },
+    get isAdmin() { return user.value?.role === 'admin' },
     ensure,
     setUser,
     login,

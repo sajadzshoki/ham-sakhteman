@@ -24,7 +24,7 @@ export default defineNuxtConfig({
         dir: 'rtl',
       },
       bodyAttrs: {
-        class: 'font-vazirmatn bg-slate-50 text-slate-900 antialiased',
+        class: 'font-vazirmatn antialiased',
       },
     },
     pageTransition: { name: 'fade', mode: 'out-in' },

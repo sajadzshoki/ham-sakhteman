@@ -1,49 +1,58 @@
 <script setup lang="ts">
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const auth = useAuth()
-const { buildings, getBuilding } = useBuildings()
+const { buildings, primaryBuildingId, isBuildingManager } = useBuildings()
 const { getByBuilding: getAnn } = useAnnouncements()
 const { getByBuilding: getProb, categoryLabels, statusLabels } = useProblems()
 const { charges, expenses } = useFinance()
-const fmt = (n: number) => (n || 0).toLocaleString('fa-IR') + ' تومان'
-const currentBuildingId = computed(() => buildings.value[0]?.id || 'b-1')
-const chargeIncome = computed(() => (charges.value.filter(c => c.buildingId === currentBuildingId.value && c.status === 'paid').reduce((s, c) => s + c.amount, 0)))
-const expenseTotal = computed(() => expenses.value.filter(e => e.buildingId === currentBuildingId.value).reduce((s, e) => s + e.amount, 0))
+const { notifications } = useNotifications()
+
+const numberLocale = computed(() => (locale.value === 'fa' ? 'fa-IR' : 'en-US'))
+const fmt = (n: number) => `${(n || 0).toLocaleString(numberLocale.value)} ${locale.value === 'fa' ? 'تومان' : 'IRR'}`
+
+const currentBuildingId = computed(() => primaryBuildingId.value)
+const currentBuilding = computed(() => buildings.value[0] || null)
+const canManage = computed(() => isBuildingManager(currentBuildingId.value))
+
+const chargeIncome = computed(() =>
+  charges.value
+    .filter((c) => c.buildingId === currentBuildingId.value && c.status === 'paid')
+    .reduce((s, c) => s + c.amount, 0),
+)
+const expenseTotal = computed(() =>
+  expenses.value
+    .filter((e) => e.buildingId === currentBuildingId.value)
+    .reduce((s, e) => s + e.amount, 0),
+)
 const balance = computed(() => chargeIncome.value - expenseTotal.value)
-const paidCount = computed(() => charges.value.filter(c => c.buildingId === currentBuildingId.value && c.status === 'paid').length)
+const paidCount = computed(() =>
+  charges.value.filter((c) => c.buildingId === currentBuildingId.value && c.status === 'paid').length,
+)
 
-const currentBuilding = computed(() => {
-  if (!auth.isAuthenticated || buildings.value.length === 0) return null
-  return buildings.value[0]
+const announcements = computed(() =>
+  currentBuilding.value ? getAnn(currentBuilding.value.id).slice(0, 3) : [],
+)
+const openProblems = computed(() =>
+  currentBuilding.value
+    ? getProb(currentBuilding.value.id).filter((p) => p.status !== 'resolved').slice(0, 3)
+    : [],
+)
+const recentNotifications = computed(() => notifications.value.slice(0, 5))
+
+const quickActions = computed(() => {
+  const buildingQuery = currentBuildingId.value ? `?id=${currentBuildingId.value}` : ''
+  const financeQuery = currentBuildingId.value ? `?buildingId=${currentBuildingId.value}` : ''
+  return [
+    { icon: 'i-lucide-building-2', label: t('home.buildings'), to: '/buildings', color: 'from-teal-450 to-primary-500' },
+    { icon: 'i-lucide-bullhorn', label: t('home.announcements'), to: `/announcements${buildingQuery}`, color: 'from-amber-400 to-orange-500' },
+    { icon: 'i-lucide-wrench', label: t('home.reportProblem'), to: '/problems/new', color: 'from-rose-400 to-rose-500' },
+    { icon: 'i-lucide-wallet', label: t('home.charges'), to: `/charges${financeQuery}`, color: 'from-sky-400 to-blue-500' },
+  ]
 })
-
-const announcements = computed(() => currentBuilding.value ? getAnn(currentBuilding.value.id).slice(0, 3) : [])
-const openProblems = computed(() => currentBuilding.value ? getProb(currentBuilding.value.id).filter(p => p.status !== 'resolved').slice(0, 3) : [])
-
-
-const quickActions = [
-  { icon: 'i-lucide-building-2', label: 'ساختمان‌ها', to: '/buildings', color: 'from-violet-400 to-indigo-500' },
-  { icon: 'i-lucide-file-text', label: 'درخواست خدمت', to: '/services', color: 'from-teal-450 to-primary-500' },
-  { icon: 'i-lucide-bell', label: 'اعلان‌ها', to: '/profile', color: 'from-amber-400 to-orange-500' },
-  { icon: 'i-lucide-wallet', label: 'مالیات', to: '/building', color: 'from-violet-400 to-indigo-500' },
-  { icon: 'i-lucide-shield-check', label: 'امنیت', to: '/building', color: 'from-rose-400 to-rose-500' },
-]
-
-const notifications = [
-  { id: '1', title: 'تعمیر آسانسور', message: 'تعمیر آسانسور طبقه ۵ در حال انجام است.', time: '۱۰ دقیقه پیش', unread: true },
-  { id: '2', title: 'صورت‌حساب ماهانه', message: 'صورت‌حساب اردیبهشت آماده است.', time: '۲ ساعت پیش', unread: false },
-  { id: '3', title: 'اجتماع ساکنان', message: 'اجتماع هفتگی در سالن اجتماعات.', time: '۵ ساعت پیش', unread: false },
-]
-
-const events = [
-  { day: '۱۲', month: 'خرداد', title: 'تأیید نقشه تأسیسات', desc: 'بررسی نهایی نقشه تأسیسات ساختمان' },
-  { day: '۱۵', month: 'خرداد', title: 'تعمیر پارکینگ', desc: 'تعمیر درب پارکینگ طبقه همکف' },
-]
 </script>
 
 <template>
   <div>
-    <!-- Welcome -->
     <section class="mb-6">
       <div class="rounded-3xl bg-gradient-to-br from-primary-600 to-teal-700 text-white p-6 shadow-soft-lg relative overflow-hidden">
         <div class="absolute top-0 left-0 w-48 h-48 bg-white/10 rounded-full -translate-x-1/3 -translate-y-1/2 blur-2xl pointer-events-none" />
@@ -51,159 +60,166 @@ const events = [
         <div class="relative z-10">
           <div class="inline-flex items-center gap-1.5 bg-white/15 backdrop-blur-md border border-white/10 rounded-full px-3 py-1 text-xs font-bold mb-3">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />
-            وضعیت فعال
+            {{ t('home.activeStatus') }}
           </div>
-          <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight leading-tight mb-1">سلام {{ auth.user?.name || 'علی' }}</h1>
-          <p class="text-primary-100 text-sm md:text-base font-medium leading-relaxed">{{ currentBuilding ? currentBuilding.name + ' — ' + currentBuilding.address : 'خوش آمدید به مدیریت ساختمان هم‌ساختمان' }}</p>
+          <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight leading-tight mb-1">
+            {{ t('home.greeting', { name: auth.user?.name || t('home.guestName') }) }}
+          </h1>
+          <p class="text-primary-100 text-sm md:text-base font-medium leading-relaxed">
+            {{
+              currentBuilding
+                ? `${currentBuilding.name} — ${currentBuilding.address}`
+                : t('home.selectBuilding')
+            }}
+          </p>
         </div>
       </div>
     </section>
 
-    <!-- Quick actions -->
     <section class="mb-8">
-      <PageHeader title="دسترسی سریع" subtitle="خدمات پرکاربرد" />
+      <PageHeader :title="t('home.quickActions')" :subtitle="t('home.subtitle')" />
       <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <NuxtLink v-for="a in quickActions" :key="a.label" :to="a.to" class="group bg-white rounded-3xl p-4 shadow-soft hover:shadow-soft-lg transition-all duration-300 hover:-translate-y-0.5 border border-slate-100/80 flex flex-col items-center text-center gap-2.5">
-          <span class="w-12 h-12 rounded-2xl bg-gradient-to-br text-white flex items-center justify-center shadow-soft-lg shadow-inner-soft transition-transform group-hover:scale-110" :class="a.color">
+        <NuxtLink
+          v-for="a in quickActions"
+          :key="a.label"
+          :to="a.to"
+          class="group bg-white dark:bg-slate-900 rounded-3xl p-4 shadow-soft hover:shadow-soft-lg transition-all duration-300 hover:-translate-y-0.5 border border-slate-100/80 dark:border-slate-800 flex flex-col items-center text-center gap-2.5"
+        >
+          <span
+            class="w-12 h-12 rounded-2xl bg-gradient-to-br text-white flex items-center justify-center shadow-soft-lg shadow-inner-soft transition-transform group-hover:scale-110"
+            :class="a.color"
+          >
             <Icon :name="a.icon" class="w-6 h-6" />
           </span>
-          <span class="text-sm font-extrabold text-slate-800 leading-snug">{{ a.label }}</span>
+          <span class="text-sm font-extrabold text-slate-800 dark:text-slate-100 leading-snug">{{ a.label }}</span>
         </NuxtLink>
       </div>
     </section>
 
-    <!-- Announcements -->
-    <section class="mb-6" v-if="announcements.length">
-      <PageHeader title="آخرین اطلاعیه‌ها" subtitle="اطلاعیه‌های ساختمان" />
+    <section v-if="announcements.length" class="mb-6">
+      <PageHeader :title="t('home.latestAnnouncements')" :subtitle="t('home.announcementsSubtitle')" />
       <div class="flex flex-col gap-3">
-        <NuxtLink v-for="a in announcements" :key="a.id" :to="'/announcements?id=' + a.id" class="bg-white rounded-3xl p-4 shadow-soft border border-slate-100/80 hover:shadow-soft-lg transition-all">
+        <NuxtLink
+          v-for="a in announcements"
+          :key="a.id"
+          :to="`/announcements?id=${a.id}`"
+          class="bg-white dark:bg-slate-900 rounded-3xl p-4 shadow-soft border border-slate-100/80 dark:border-slate-800 hover:shadow-soft-lg transition-all"
+        >
           <div class="flex items-center gap-2 mb-1">
-            <StatusBadge :status="a.importance === 'important' ? 'warning' : 'success'" :label="a.importance === 'important' ? 'مهم' : 'عادی'" />
-            <span class="text-[10px] text-slate-300 font-medium">{{ a.createdAt ? a.createdAt.slice(0,10) : '' }}</span>
+            <StatusBadge
+              :status="a.importance === 'important' ? 'warning' : 'success'"
+              :label="a.importance === 'important' ? (locale === 'fa' ? 'مهم' : 'Important') : (locale === 'fa' ? 'عادی' : 'Normal')"
+            />
+            <span class="text-[10px] text-slate-300 font-medium">{{ a.createdAt ? a.createdAt.slice(0, 10) : '' }}</span>
           </div>
-          <h4 class="text-sm font-extrabold text-slate-900 leading-snug">{{ a.title }}</h4>
+          <h4 class="text-sm font-extrabold text-slate-900 dark:text-white leading-snug">{{ a.title }}</h4>
           <p class="text-xs text-slate-400 font-medium truncate">{{ a.description }}</p>
         </NuxtLink>
       </div>
-      <div v-if="!auth.isAuthenticated" class="mt-3 text-center"><NuxtLink to="/login" class="text-xs font-extrabold text-primary-600">ورود برای مشاهده بیشتر</NuxtLink></div>
     </section>
 
-    <!-- Open problems -->
-    <section class="mb-6" v-if="openProblems.length">
-      <PageHeader title="مشکلات باز" subtitle="گزارش‌های در حال بررسی" />
+    <section v-if="openProblems.length" class="mb-6">
+      <PageHeader :title="t('home.openProblems')" :subtitle="t('home.openProblemsSubtitle')" />
       <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
         <AppCard v-for="p in openProblems" :key="p.id" padding="md" hover>
-          <NuxtLink :to="'/problems?id=' + p.id" class="block">
+          <NuxtLink :to="`/problems?id=${p.id}`" class="block">
             <div class="flex items-center gap-2 mb-2">
-              <span class="text-xs font-bold bg-rose-50 text-rose-600 px-2 py-0.5 rounded-md border border-rose-100">{{ categoryLabels[p.category] || p.category }}</span>
-              <StatusBadge :status="p.status === 'new' ? 'pending' : p.status === 'in-progress' ? 'in-progress' : 'completed'" :label="statusLabels[p.status] || p.status" />
+              <span class="text-xs font-bold bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-300 px-2 py-0.5 rounded-md border border-rose-100 dark:border-rose-900">
+                {{ categoryLabels[p.category] || p.category }}
+              </span>
+              <StatusBadge
+                :status="p.status === 'new' ? 'pending' : p.status === 'in-progress' ? 'in-progress' : 'completed'"
+                :label="statusLabels[p.status] || p.status"
+              />
             </div>
-            <h4 class="text-sm font-extrabold text-slate-900 leading-snug">{{ p.title }}</h4>
+            <h4 class="text-sm font-extrabold text-slate-900 dark:text-white leading-snug">{{ p.title }}</h4>
             <p class="text-xs text-slate-400 font-medium truncate">{{ p.description }}</p>
           </NuxtLink>
         </AppCard>
       </div>
     </section>
 
-    <!-- Quick manager/resident actions -->
-    <section class="mb-8" v-if="auth.isManager || auth.isAuthenticated">
-      <PageHeader title="دسترسی سریع" subtitle="خدمات پرکاربرد" />
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <NuxtLink to="/announcements" class="group bg-white rounded-3xl p-4 shadow-soft hover:shadow-soft-lg transition-all duration-300 hover:-translate-y-0.5 border border-slate-100/80 flex flex-col items-center text-center gap-2.5">
-          <span class="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center shadow-soft-lg shadow-inner-soft transition-transform group-hover:scale-110"><Icon name="i-lucide-bullhorn" class="w-6 h-6" /></span>
-          <span class="text-sm font-extrabold text-slate-800 leading-snug">اعلان‌ها</span>
-        </NuxtLink>
-        <NuxtLink to="/problems" class="group bg-white rounded-3xl p-4 shadow-soft hover:shadow-soft-lg transition-all duration-300 hover:-translate-y-0.5 border border-slate-100/80 flex flex-col items-center text-center gap-2.5">
-          <span class="w-12 h-12 rounded-2xl bg-gradient-to-br from-rose-400 to-rose-500 text-white flex items-center justify-center shadow-soft-lg shadow-inner-soft transition-transform group-hover:scale-110"><Icon name="i-lucide-wrench" class="w-6 h-6" /></span>
-          <span class="text-sm font-extrabold text-slate-800 leading-snug">گزارش مشکل</span>
-        </NuxtLink>
-      </div>
-    </section>
-
-    <!-- Building status + notifications -->
-    <!-- Building status + notifications -->
-    <div class="grid md:grid-cols-3 gap-5 mb-8">
+    <div v-if="currentBuilding" class="grid md:grid-cols-3 gap-5 mb-8">
       <AppCard class="md:col-span-2" padding="lg">
-        <PageHeader title="وضعیت ساختمان" subtitle="واحد ۴۰۲ — طبقه ۴" />
-        <div class="grid grid-cols-3 gap-3">
-          <div class="bg-slate-50 rounded-2xl p-4 border border-slate-100/60 text-center">
-            <div class="text-2xl font-extrabold text-slate-900">۲۴</div>
-            <div class="text-xs text-slate-400 font-bold mt-0.5">واحد</div>
+        <PageHeader :title="t('home.buildingStatus')" :subtitle="currentBuilding.name" />
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div class="bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-4 border border-slate-100/60 dark:border-slate-700 text-center">
+            <div class="text-2xl font-extrabold text-slate-900 dark:text-white">{{ currentBuilding.unitCount }}</div>
+            <div class="text-xs text-slate-400 font-bold mt-0.5">{{ t('home.units') }}</div>
           </div>
-          <div class="bg-slate-50 rounded-2xl p-4 border border-slate-100/60 text-center">
-            <div class="text-2xl font-extrabold text-primary-600">۹۸%</div>
-            <div class="text-xs text-slate-400 font-bold mt-0.5">اشغال</div>
+          <div class="bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-4 border border-slate-100/60 dark:border-slate-700 text-center">
+            <div class="text-2xl font-extrabold text-primary-600">{{ currentBuilding.residentCount }}</div>
+            <div class="text-xs text-slate-400 font-bold mt-0.5">{{ t('home.residents') }}</div>
           </div>
-          <div class="bg-slate-50 rounded-2xl p-4 border border-slate-100/60 text-center">
-            <div class="text-2xl font-extrabold text-teal-600">۱۲</div>
-            <div class="text-xs text-slate-400 font-bold mt-0.5">درخواست</div>
+          <div class="bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-4 border border-slate-100/60 dark:border-slate-700 text-center">
+            <div class="text-2xl font-extrabold text-teal-600">{{ openProblems.length }}</div>
+            <div class="text-xs text-slate-400 font-bold mt-0.5">{{ t('home.openProblems') }}</div>
           </div>
         </div>
-        <div class="mt-4 flex items-center gap-3 bg-amber-50 rounded-2xl px-4 py-3 border border-amber-100/60">
-          <Icon name="i-lucide-alert-circle" class="w-5 h-5 text-amber-500 shrink-0" />
-          <div>
-            <div class="text-sm font-extrabold text-amber-800">تعمیر آسانسور</div>
-            <div class="text-xs text-amber-600 font-medium">طبق برنامه در ساعت ۱۰ صبح انجام می‌شود.</div>
-          </div>
+        <div v-if="canManage" class="mt-4 flex flex-wrap gap-2">
+          <NuxtLink :to="`/building?id=${currentBuilding.id}`" class="px-3 py-2 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-extrabold">
+            {{ t('building.title') }}
+          </NuxtLink>
+          <NuxtLink :to="`/expenses?buildingId=${currentBuilding.id}`" class="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-extrabold">
+            {{ t('home.expenses') }}
+          </NuxtLink>
         </div>
       </AppCard>
 
       <AppCard padding="lg">
-        <PageHeader title="اعلان‌ها" subtitle="آخرین به‌روزرسانی‌ها" />
-        <div class="flex flex-col gap-2.5">
-          <div v-for="n in notifications" :key="n.id" class="flex items-start gap-3 rounded-2xl p-3 transition-colors" :class="n.unread ? 'bg-primary-50/60' : 'hover:bg-slate-50'">
-            <div class="w-8 h-8 rounded-xl bg-white shadow-soft flex items-center justify-center text-slate-500 shrink-0 border border-slate-100" :class="n.unread ? 'text-primary-600' : ''">
+        <div class="flex items-center justify-between gap-2 mb-3">
+          <PageHeader :title="t('home.notifications')" :subtitle="t('home.viewAll')" />
+          <NuxtLink to="/notifications" class="text-xs font-extrabold text-primary-600 shrink-0">{{ t('home.viewAll') }}</NuxtLink>
+        </div>
+        <div v-if="recentNotifications.length" class="flex flex-col gap-2.5">
+          <div
+            v-for="n in recentNotifications"
+            :key="n.id"
+            class="flex items-start gap-3 rounded-2xl p-3 transition-colors"
+            :class="n.unread ? 'bg-primary-50/60 dark:bg-primary-950/30' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'"
+          >
+            <div
+              class="w-8 h-8 rounded-xl bg-white dark:bg-slate-800 shadow-soft flex items-center justify-center text-slate-500 shrink-0 border border-slate-100 dark:border-slate-700"
+              :class="n.unread ? 'text-primary-600' : ''"
+            >
               <Icon :name="n.unread ? 'i-lucide-bell' : 'i-lucide-check-circle'" class="w-4 h-4" />
             </div>
             <div class="min-w-0">
-              <h4 class="text-sm font-extrabold text-slate-800 truncate">{{ n.title }}</h4>
+              <h4 class="text-sm font-extrabold text-slate-800 dark:text-slate-100 truncate">{{ n.title }}</h4>
               <p class="text-xs text-slate-400 font-medium truncate">{{ n.message }}</p>
-              <div class="text-[10px] text-slate-300 font-medium mt-0.5">{{ n.time }}</div>
+              <div class="text-[10px] text-slate-300 font-medium mt-0.5">{{ n.createdAt ? n.createdAt.slice(0, 16).replace('T', ' ') : '' }}</div>
             </div>
           </div>
         </div>
+        <EmptyState v-else :title="t('home.noNotifications')" />
       </AppCard>
     </div>
 
-    <!-- Financial overview -->
-    <section class="mb-8">
-      <PageHeader title="وضعیت مالی" subtitle="درآمد، هزینه و مانده" />
-      
-      <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <AppCard padding="md" class="bg-gradient-to-br from-emerald-50 to-white border-emerald-100/60">
-          <div class="text-xs text-emerald-600 font-bold">درآمد شارژ</div>
-          <div class="text-xl font-extrabold text-emerald-700 mt-0.5">{{ fmt(chargeIncome) }}</div>
-        </AppCard>
-        <AppCard padding="md" class="bg-gradient-to-br from-rose-50 to-white border-rose-100/60">
-          <div class="text-xs text-rose-600 font-bold">هزینه‌ها</div>
-          <div class="text-xl font-extrabold text-rose-700 mt-0.5">{{ fmt(expenseTotal) }}</div>
-        </AppCard>
-        <AppCard padding="md" class="bg-gradient-to-br from-amber-50 to-white border-amber-100/60">
-          <div class="text-xs text-amber-600 font-bold">مانده</div>
-          <div class="text-xl font-extrabold text-amber-700 mt-0.5">{{ fmt(balance) }}</div>
-        </AppCard>
-        <AppCard padding="md" class="bg-gradient-to-br from-sky-50 to-white border-sky-100/60">
-          <div class="text-xs text-sky-600 font-bold">پرداخت شده</div>
-          <div class="text-xl font-extrabold text-sky-700 mt-0.5">{{ paidCount }}</div>
-        </AppCard>
-      </div>
-    </section>
+    <EmptyState
+      v-else
+      class="mb-8"
+      :title="t('buildings.noBuildings')"
+      :message="t('home.selectBuilding')"
+    />
 
-    <!-- Upcoming events -->
-    <section class="mb-8">
-      <PageHeader title="رویدادهای پیش رو" subtitle="تقویم ساختمان" />
-      <div class="grid sm:grid-cols-2 gap-3">
-        <AppCard v-for="e in events" :key="e.title" padding="md" hover>
-          <div class="flex items-center gap-3">
-            <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary-500 to-teal-600 text-white flex flex-col items-center justify-center shadow-soft shadow-inner-soft shrink-0 leading-none">
-              <span class="text-xs font-bold opacity-90">{{ e.month }}</span>
-              <span class="text-lg font-extrabold">{{ e.day }}</span>
-            </div>
-            <div class="min-w-0">
-              <h4 class="text-sm font-extrabold text-slate-900 truncate">{{ e.title }}</h4>
-              <p class="text-xs text-slate-400 font-medium truncate">{{ e.desc }}</p>
-            </div>
-          </div>
+    <section v-if="currentBuilding" class="mb-8">
+      <PageHeader :title="t('home.finance')" :subtitle="t('home.financeSubtitle')" />
+      <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <AppCard padding="md" class="bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-950/40 dark:to-slate-900 border-emerald-100/60 dark:border-emerald-900/40">
+          <div class="text-xs text-emerald-600 font-bold">{{ t('home.chargeIncome') }}</div>
+          <div class="text-xl font-extrabold text-emerald-700 dark:text-emerald-300 mt-0.5">{{ fmt(chargeIncome) }}</div>
+        </AppCard>
+        <AppCard padding="md" class="bg-gradient-to-br from-rose-50 to-white dark:from-rose-950/40 dark:to-slate-900 border-rose-100/60 dark:border-rose-900/40">
+          <div class="text-xs text-rose-600 font-bold">{{ t('home.expenses') }}</div>
+          <div class="text-xl font-extrabold text-rose-700 dark:text-rose-300 mt-0.5">{{ fmt(expenseTotal) }}</div>
+        </AppCard>
+        <AppCard padding="md" class="bg-gradient-to-br from-amber-50 to-white dark:from-amber-950/40 dark:to-slate-900 border-amber-100/60 dark:border-amber-900/40">
+          <div class="text-xs text-amber-600 font-bold">{{ t('home.balance') }}</div>
+          <div class="text-xl font-extrabold text-amber-700 dark:text-amber-300 mt-0.5">{{ fmt(balance) }}</div>
+        </AppCard>
+        <AppCard padding="md" class="bg-gradient-to-br from-sky-50 to-white dark:from-sky-950/40 dark:to-slate-900 border-sky-100/60 dark:border-sky-900/40">
+          <div class="text-xs text-sky-600 font-bold">{{ t('home.paidCount') }}</div>
+          <div class="text-xl font-extrabold text-sky-700 dark:text-sky-300 mt-0.5">{{ paidCount }}</div>
         </AppCard>
       </div>
     </section>

@@ -89,6 +89,7 @@ export async function createBuilding(user: User, input: unknown) {
   const data = parseSchema(buildingCreateSchema, input)
   const id = randomUUID()
   const code = await reserveCode()
+  const unitCount = Math.min(Math.max(data.unitCount ?? 0, 0), 200)
   await getDb().transaction(async (tx) => {
     await tx.insert(buildings).values({
       id,
@@ -104,6 +105,20 @@ export async function createBuilding(user: User, input: unknown) {
       userId: user.id,
       role: 'manager',
     })
+    if (unitCount > 0) {
+      await tx.insert(buildingUnits).values(
+        Array.from({ length: unitCount }, (_, index) => {
+          const number = String(index + 1)
+          return {
+            id: randomUUID(),
+            buildingId: id,
+            number,
+            floor: String(Math.ceil((index + 1) / 4) || 1),
+            status: 'vacant' as const,
+          }
+        }),
+      )
+    }
   })
   return getBuilding(user, id)
 }

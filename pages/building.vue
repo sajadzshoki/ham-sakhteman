@@ -1,15 +1,32 @@
 <script setup lang="ts">
-import type { Building } from '../types'
-
 const route = useRoute()
-const auth = useAuth()
-const currentUser = computed(() => auth.user || null)
-const { getBuilding, units, members, invitations, invite, addUnit, removeUnit, updateBuilding, actionError } = useBuildings()
+const { getBuilding, units, members, invitations, invite, addUnit, removeUnit, updateBuilding, actionError, isBuildingManager, loading, loadError, refresh } = useBuildings()
 
 const buildingId = computed<string>(() => String(route.query.id || ''))
 const b = computed<import('../types').Building | null>(() => getBuilding(buildingId.value))
 
-const isMgr = computed(() => b.value?.managerId === currentUser.value?.id || auth.isManager)
+const isMgr = computed(() => isBuildingManager(buildingId.value))
+
+const showAddUnit = ref(false)
+const newUnitNumber = ref('')
+const newUnitFloor = ref('1')
+const addingUnit = ref(false)
+
+const submitUnit = async () => {
+  if (!b.value || !newUnitNumber.value.trim()) return
+  addingUnit.value = true
+  await addUnit(b.value.id, {
+    number: newUnitNumber.value.trim(),
+    floor: newUnitFloor.value.trim() || '1',
+    status: 'vacant',
+  })
+  addingUnit.value = false
+  if (!actionError.value) {
+    showAddUnit.value = false
+    newUnitNumber.value = ''
+    newUnitFloor.value = '1'
+  }
+}
 
 const unitList = computed(() => units.value[buildingId.value] || [])
 const memberList = computed(() => members.value[buildingId.value] || [])
@@ -46,7 +63,11 @@ const shareLink = async () => {
 <template>
   <div>
     <AppHeader title="ساختمان" subtitle="مدیریت ساختمان" back />
-    <p v-if="actionError" class="text-xs text-rose-500 font-bold mb-3">{{ actionError }}</p>
+    <p v-if="actionError" class="text-xs text-rose-500 font-bold mb-3" role="alert">{{ actionError }}</p>
+    <LoadingState v-if="loading && !b" />
+    <ErrorState v-else-if="loadError && !b" :message="loadError" :retry="refresh" />
+    <EmptyState v-else-if="!buildingId" title="ساختمان انتخاب نشده" message="از فهرست ساختمان‌ها یک مورد را باز کنید." />
+    <EmptyState v-else-if="!b && !loading" title="ساختمان یافت نشد" message="این ساختمان در دسترس نیست یا حذف شده است." />
 
     <AppCard v-if="b" padding="lg" class="mb-6">
       <div class="flex items-start justify-between gap-3 mb-4">
@@ -97,60 +118,94 @@ const shareLink = async () => {
       </div>
     </AppCard>
 
-    <!-- Units -->
-    <section class="mb-8">
-      <PageHeader title="واحدها" subtitle="وضعیت واحدها" />
-      <div class="flex flex-col gap-3">
-        <AppCard v-for="u in unitList" :key="u.id" padding="md" hover>
-          <div class="flex items-center justify-between gap-3">
-            <div>
-              <h4 class="text-base font-extrabold text-slate-900">واحد {{ u.number }}</h4>
-              <p class="text-xs text-slate-400 font-medium">طبقه {{ u.floor }}</p>
-              <div class="flex items-center gap-2 mt-1">
-                <StatusBadge :status="u.status === 'occupied' ? 'completed' : u.status === 'vacant' ? 'pending' : 'warning'" :label="u.status === 'occupied' ? 'اشغال' : u.status === 'vacant' ? 'خالی' : 'تعمیر'" />
-                <span v-if="u.residentName" class="text-xs text-slate-500 font-medium">{{ u.residentName }}</span>
+    <template v-if="b">
+      <!-- Units -->
+      <section class="mb-8">
+        <PageHeader title="واحدها" subtitle="وضعیت واحدها" />
+        <div class="flex flex-col gap-3">
+          <AppCard v-for="u in unitList" :key="u.id" padding="md" hover>
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <h4 class="text-base font-extrabold text-slate-900 dark:text-white">واحد {{ u.number }}</h4>
+                <p class="text-xs text-slate-400 font-medium">طبقه {{ u.floor }}</p>
+                <div class="flex items-center gap-2 mt-1">
+                  <StatusBadge :status="u.status === 'occupied' ? 'completed' : u.status === 'vacant' ? 'pending' : 'warning'" :label="u.status === 'occupied' ? 'اشغال' : u.status === 'vacant' ? 'خالی' : 'تعمیر'" />
+                  <span v-if="u.residentName" class="text-xs text-slate-500 font-medium">{{ u.residentName }}</span>
+                </div>
+              </div>
+              <button
+                v-if="isMgr"
+                type="button"
+                class="w-8 h-8 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-500 flex items-center justify-center hover:bg-rose-100 transition-colors"
+                aria-label="delete"
+                @click="removeUnit(b.id, u.id)"
+              >
+                <Icon name="i-lucide-trash-2" class="w-4 h-4" />
+              </button>
+            </div>
+          </AppCard>
+          <EmptyState v-if="unitList.length === 0" title="واحدی یافت نشد" message="واحدها را از صفحه ساختمان اضافه کنید." />
+        </div>
+        <div v-if="isMgr" class="mt-3 space-y-3">
+          <button
+            type="button"
+            class="w-full h-11 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 font-extrabold text-sm shadow-soft hover:bg-slate-800 dark:hover:bg-white transition-colors"
+            @click="showAddUnit = !showAddUnit"
+          >
+            {{ showAddUnit ? 'بستن' : '+ اضافه کردن واحد' }}
+          </button>
+          <AppCard v-if="showAddUnit" padding="md">
+            <div class="grid sm:grid-cols-2 gap-3">
+              <AppInput v-model="newUnitNumber" label="شماره واحد" placeholder="101" />
+              <AppInput v-model="newUnitFloor" label="طبقه" placeholder="1" />
+            </div>
+            <button
+              type="button"
+              class="mt-3 w-full h-11 rounded-xl bg-primary-600 text-white font-extrabold text-sm disabled:opacity-60"
+              :disabled="addingUnit || !newUnitNumber.trim()"
+              @click="submitUnit"
+            >
+              {{ addingUnit ? 'در حال افزودن...' : 'افزودن واحد' }}
+            </button>
+          </AppCard>
+        </div>
+      </section>
+
+      <!-- Members -->
+      <section class="mb-8">
+        <PageHeader title="اعضا" subtitle="ساکنان و مدیران" />
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <AppCard v-for="m in memberList" :key="m.id" padding="md" hover>
+            <div class="flex items-center gap-3">
+              <UserAvatar :name="m.user?.name || 'عضو'" :initials="m.user?.avatarInitials || 'ع'" avatar-size="md" />
+              <div class="min-w-0">
+                <div class="text-sm font-extrabold text-slate-900 dark:text-white truncate">{{ m.user?.name || 'عضو' }}</div>
+                <div class="text-xs text-slate-400 font-medium">{{ m.role === 'manager' ? 'مدیر' : 'ساکن' }}</div>
+                <div v-if="m.unitId" class="text-[10px] text-slate-300 font-medium">واحد: {{ unitList.find(u => u.id === m.unitId)?.number || '-' }}</div>
               </div>
             </div>
-            <button v-if="isMgr" @click="removeUnit(b?.id || '', u.id)" class="w-8 h-8 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center hover:bg-rose-100 transition-colors" aria-label="delete">
-              <Icon name="i-lucide-trash-2" class="w-4 h-4" />
-            </button>
-          </div>
-        </AppCard>
-        <EmptyState v-if="unitList.length === 0" title="واحدی یافت نشد" message="واحدها را از صفحه ساختمان اضافه کنید." />
-      </div>
-      <div v-if="isMgr" class="mt-3">
-        <button @click="addUnit(b?.id || '', { number: '۰۰۰', floor: '۱', status: 'vacant' })" class="w-full h-11 rounded-xl bg-slate-900 text-white font-extrabold text-sm shadow-soft hover:bg-slate-800 transition-colors">+ اضافه کردن واحد</button>
-      </div>
-    </section>
-
-    <!-- Members -->
-    <section class="mb-8">
-      <PageHeader title="اعضا" subtitle="ساکنان و مدیران" />
-      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        <AppCard v-for="m in memberList" :key="m.id" padding="md" hover>
-          <div class="flex items-center gap-3">
-            <UserAvatar :name="m.user?.name || 'عضو'" :initials="m.user?.avatarInitials || 'ع'" size="md" />
-            <div class="min-w-0">
-              <div class="text-sm font-extrabold text-slate-900 truncate">{{ m.user?.name || 'عضو' }}</div>
-              <div class="text-xs text-slate-400 font-medium">{{ m.role === 'manager' ? 'مدیر' : 'ساکن' }}</div>
-              <div v-if="m.unitId" class="text-[10px] text-slate-300 font-medium">واحد: {{ unitList.find(u => u.id === m.unitId)?.number || '-' }}</div>
-            </div>
-          </div>
-        </AppCard>
-      </div>
-      <EmptyState v-if="memberList.length === 0" title="عضوی یافت نشد" message="ساکنان را از طریق کد دعوت اضافه کنید." />
-    </section>
-
-    <!-- Invitation actions -->
-    <section v-if="isMgr" class="mb-8">
-      <PageHeader title="دعوت" subtitle="ارسال لینک و کد دعوت" />
-      <AppCard padding="md" class="flex flex-col sm:flex-row items-center gap-3">
-        <div class="flex-1 w-full">
-          <div class="text-sm font-extrabold text-slate-900">کد دعوت: <span class="text-primary-600">{{ b?.invitationCode }}</span></div>
-          <div class="text-xs text-slate-400 font-medium truncate">{{ b?.invitationLink }}</div>
+          </AppCard>
         </div>
-        <button @click="invite(b?.id || '')" class="h-11 px-5 rounded-xl bg-gradient-to-br from-primary-500 to-teal-600 text-white font-extrabold shadow-soft hover:shadow-soft-lg transition-all text-sm whitespace-nowrap">ایجاد دعوت جدید</button>
-      </AppCard>
-    </section>
+        <EmptyState v-if="memberList.length === 0" title="عضوی یافت نشد" message="ساکنان را از طریق کد دعوت اضافه کنید." />
+      </section>
+
+      <!-- Invitation actions -->
+      <section v-if="isMgr" class="mb-8">
+        <PageHeader title="دعوت" subtitle="ارسال لینک و کد دعوت" />
+        <AppCard padding="md" class="flex flex-col sm:flex-row items-center gap-3">
+          <div class="flex-1 w-full min-w-0">
+            <div class="text-sm font-extrabold text-slate-900 dark:text-white">کد دعوت: <span class="text-primary-600">{{ b.invitationCode }}</span></div>
+            <div class="text-xs text-slate-400 font-medium truncate">{{ b.invitationLink }}</div>
+          </div>
+          <button
+            type="button"
+            class="h-11 px-5 rounded-xl bg-gradient-to-br from-primary-500 to-teal-600 text-white font-extrabold shadow-soft hover:shadow-soft-lg transition-all text-sm whitespace-nowrap"
+            @click="invite(b.id)"
+          >
+            ایجاد دعوت جدید
+          </button>
+        </AppCard>
+      </section>
+    </template>
   </div>
 </template>

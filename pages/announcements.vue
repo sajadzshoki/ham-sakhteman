@@ -1,15 +1,16 @@
 <script setup lang="ts">
 const { t } = useI18n()
 const auth = useAuth()
-const { buildings } = useBuildings()
+const { buildings, primaryBuildingId, isBuildingManager } = useBuildings()
 const { getByBuilding, getById, create, remove, loading, loadError, refresh } = useAnnouncements()
 
 const route = useRoute()
 const id = computed(() => route.query.id as string)
 const detail = computed(() => id.value ? getById(id.value) : null)
 
-const currentBuildingId = computed(() => buildings.value[0]?.id || 'b-1')
-const list = computed(() => getByBuilding(currentBuildingId.value))
+const currentBuildingId = computed(() => primaryBuildingId.value)
+const canManage = computed(() => isBuildingManager(currentBuildingId.value))
+const list = computed(() => currentBuildingId.value ? getByBuilding(currentBuildingId.value) : [])
 
 const showForm = ref(false)
 const title = ref('')
@@ -20,9 +21,12 @@ const formError = ref('')
 
 const submit = async () => {
   formError.value = ''
-  if (!title.value.trim()) return
+  if (!title.value.trim() || !currentBuildingId.value) {
+    formError.value = buildings.value.length ? 'ساختمان نامعتبر است' : 'ابتدا یک ساختمان انتخاب کنید'
+    return
+  }
   try {
-    await create({ buildingId: currentBuildingId.value, title: title.value, description: desc.value, importance: importance.value, imageUrl: '', createdBy: (auth.user as any)?.id || 'system' })
+    await create({ buildingId: currentBuildingId.value, title: title.value, description: desc.value, importance: importance.value, imageUrl: '', createdBy: auth.user?.id || '' })
     title.value = ''; desc.value = ''; importance.value = 'normal'; showForm.value = false
   } catch (error) {
     formError.value = apiErrorMessage(error, 'ذخیره اطلاعیه ناموفق بود')
@@ -38,9 +42,10 @@ const deleteAnn = (annId: string) => {
   <div>
     <AppHeader title="اعلان‌ها" subtitle="اطلاعیه‌های ساختمان" back />
 
-    <div v-if="auth.isManager" class="mb-4 flex justify-end">
+    <div v-if="canManage && currentBuildingId" class="mb-4 flex justify-end">
       <button @click="showForm = !showForm" class="px-4 py-2 rounded-xl bg-primary-600 text-white text-sm font-extrabold shadow-soft hover:bg-primary-700 transition-colors">{{ showForm ? 'بستن' : 'ایجاد اطلاعیه' }}</button>
     </div>
+    <EmptyState v-if="!currentBuildingId" title="ساختمانی یافت نشد" message="ابتدا یک ساختمان بسازید یا به یکی بپیوندید." />
 
     <AppCard v-if="showForm" padding="md" class="mb-6">
       <h3 class="text-base font-extrabold text-slate-900 mb-3">اعلان جدید</h3>
@@ -64,7 +69,7 @@ const deleteAnn = (annId: string) => {
         </div>
         <h2 class="text-xl font-extrabold text-slate-900 leading-tight mb-2">{{ detail.title }}</h2>
         <p class="text-sm text-slate-600 font-medium leading-relaxed whitespace-pre-wrap">{{ detail.description }}</p>
-        <div v-if="auth.isManager" class="flex gap-2 mt-4">
+        <div v-if="canManage" class="flex gap-2 mt-4">
           <button @click="deleteAnn(detail.id)" class="px-3 py-1.5 rounded-xl bg-rose-50 text-rose-600 text-xs font-extrabold">حذف</button>
         </div>
       </AppCard>

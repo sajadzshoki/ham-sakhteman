@@ -1,6 +1,7 @@
 <script setup lang="ts">
-const { locale, switchLocale } = useAppLocale()
+const { locale, switchLocale, t } = useAppLocale()
 const auth = useAuth()
+const theme = useTheme()
 const { buildings } = useBuildings()
 const currentBuilding = computed(() => buildings.value[0] || null)
 const givenName = ref('')
@@ -58,10 +59,9 @@ const cancel = () => {
           <UserAvatar :name="auth.user?.name || 'کاربر'" :initials="auth.user?.avatarInitials || 'ک'" avatar-size="lg" />
           <div>
             <h2 class="text-xl font-extrabold text-slate-900 leading-none">{{ auth.user?.name || 'کاربر' }}</h2>
-            <p class="text-sm text-slate-400 font-medium mt-1">{{ currentBuilding ? currentBuilding.address : 'واحدی ثبت نشده' }}</p>
+            <p class="text-sm text-slate-400 font-medium mt-1">{{ currentBuilding ? currentBuilding.address : t('profile.noUnit') }}</p>
             <div class="flex items-center gap-2 mt-2">
-              <span class="text-xs font-bold bg-primary-50 text-primary-700 px-2 py-0.5 rounded-md border border-primary-100">{{ roleLabel }}</span>
-              <span class="text-xs font-bold bg-amber-50 text-amber-700 px-2 py-0.5 rounded-md border border-amber-100">عضو از ۱۴۰۲</span>
+              <span class="text-xs font-bold bg-primary-50 dark:bg-primary-950/40 text-primary-700 dark:text-primary-300 px-2 py-0.5 rounded-md border border-primary-100 dark:border-primary-900">{{ roleLabel }}</span>
             </div>
           </div>
         </div>
@@ -95,30 +95,42 @@ const cancel = () => {
             <div class="text-xs text-slate-400 font-medium">فارسی / English</div>
           </div>
         </div>
-        <button @click="switchLocale(locale === 'fa' ? 'en' : 'fa')" class="px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-extrabold shadow-soft">{{ locale === 'fa' ? 'English' : 'فارسی' }}</button>
+        <button type="button" class="px-3 py-1.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-extrabold shadow-soft" @click="switchLocale(locale === 'fa' ? 'en' : 'fa')">{{ locale === 'fa' ? 'English' : 'فارسی' }}</button>
       </div>
-      <div class="border-t border-slate-100 my-2" />
+      <div class="border-t border-slate-100 dark:border-slate-800 my-2" />
       <div class="flex items-center justify-between py-2">
         <div class="flex items-center gap-3">
-          <div class="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shadow-soft border border-amber-100">
+          <div class="w-9 h-9 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center shadow-soft border border-slate-100 dark:border-slate-700">
+            <Icon :name="theme.isDark ? 'i-lucide-sun' : 'i-lucide-moon'" class="w-4 h-4" />
+          </div>
+          <div>
+            <div class="text-sm font-extrabold text-slate-900 dark:text-white">{{ t('common.toggleTheme') }}</div>
+            <div class="text-xs text-slate-400 font-medium">{{ theme.isDark ? 'Dark' : 'Light' }}</div>
+          </div>
+        </div>
+        <button type="button" class="px-3 py-1.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-extrabold shadow-soft" @click="theme.toggle()">
+          {{ theme.isDark ? 'Light' : 'Dark' }}
+        </button>
+      </div>
+      <div class="border-t border-slate-100 dark:border-slate-800 my-2" />
+      <NuxtLink to="/notifications" class="flex items-center justify-between py-2">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 flex items-center justify-center shadow-soft border border-amber-100 dark:border-amber-900">
             <Icon name="i-lucide-bell-ring" class="w-4 h-4" />
           </div>
           <div>
-            <div class="text-sm font-extrabold text-slate-900">اعلان‌های صوتی</div>
-            <div class="text-xs text-slate-400 font-medium">هشدارهای فوری</div>
+            <div class="text-sm font-extrabold text-slate-900 dark:text-white">{{ t('profile.notifications') }}</div>
+            <div class="text-xs text-slate-400 font-medium">{{ t('home.viewAll') }}</div>
           </div>
         </div>
-        <label class="relative inline-flex items-center cursor-pointer">
-          <input type="checkbox" checked class="sr-only peer" />
-          <div class="w-10 h-6 bg-slate-200 peer-focus:ring-2 peer-focus:ring-primary-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600" />
-        </label>
-      </div>
+        <Icon name="i-lucide-chevron-left" class="w-4 h-4 text-slate-400 rtl:rotate-180" />
+      </NuxtLink>
     </AppCard>
 
     <AppCard padding="md" class="mb-6">
       <div class="flex items-center gap-3 text-rose-600 hover:text-rose-700 cursor-pointer transition-colors" @click="auth.logout()">
         <Icon name="i-lucide-log-out" class="w-5 h-5" />
-        <span class="text-sm font-extrabold">خروج از حساب</span>
+        <span class="text-sm font-extrabold">{{ t('profile.logout') }}</span>
       </div>
     </AppCard>
   </div>

@@ -1,4 +1,8 @@
 {
+  "brand": {
+    "name": "Ham-Sakhteman",
+    "tagline": "Building management"
+  },
   "nav": {
     "home": "Home",
     "building": "Building",
@@ -19,7 +23,10 @@
     "loading": "Loading...",
     "error": "Error",
     "empty": "Nothing found",
-    "success": "Done"
+    "success": "Done",
+    "toggleTheme": "Toggle theme",
+    "retry": "Retry",
+    "back": "Back"
   },
   "home": {
     "title": "Home",
@@ -29,7 +36,29 @@
     "buildingStatus": "Building status",
     "upcomingEvents": "Upcoming events",
     "notifications": "Notifications",
-    "viewAll": "View all"
+    "viewAll": "View all",
+    "greeting": "Hello {name}",
+    "guestName": "there",
+    "activeStatus": "Active",
+    "welcomeMessage": "Welcome to Ham-Sakhteman building management",
+    "selectBuilding": "Create a building or join one to get started",
+    "finance": "Financial overview",
+    "financeSubtitle": "Income, expenses, and balance",
+    "chargeIncome": "Charge income",
+    "expenses": "Expenses",
+    "balance": "Balance",
+    "paidCount": "Paid",
+    "openProblems": "Open problems",
+    "openProblemsSubtitle": "Reports under review",
+    "latestAnnouncements": "Latest announcements",
+    "announcementsSubtitle": "Building announcements",
+    "units": "Units",
+    "residents": "Residents",
+    "noNotifications": "No notifications",
+    "announcements": "Announcements",
+    "reportProblem": "Report a problem",
+    "charges": "Charges",
+    "buildings": "Buildings"
   },
   "building": {
     "title": "Building",
@@ -45,7 +74,11 @@
     "subtitle": "Building requests and services",
     "requestService": "Request service",
     "serviceHistory": "Service history",
-    "categories": "Categories"
+    "categories": "Categories",
+    "searchPlaceholder": "Service name or category...",
+    "find": "Find",
+    "call": "Call",
+    "trusted": "Building trusted"
   },
   "profile": {
     "title": "Profile",
@@ -53,6 +86,60 @@
     "personalInfo": "Personal info",
     "security": "Security",
     "notifications": "Notifications",
-    "language": "Language"
+    "language": "Language",
+    "logout": "Sign out",
+    "noUnit": "No unit assigned",
+    "saveChanges": "Save changes",
+    "saving": "Saving..."
+  },
+  "auth": {
+    "login": "Sign in",
+    "register": "Register",
+    "logout": "Sign out",
+    "email": "Email",
+    "password": "Password",
+    "name": "Name",
+    "confirmPassword": "Confirm password",
+    "welcomeBack": "Welcome back",
+    "createAccount": "Create account",
+    "alreadyHaveAccount": "Already have an account?",
+    "noAccount": "Don't have an account?",
+    "manager": "Building manager",
+    "resident": "Resident",
+    "loggingIn": "Signing in...",
+    "registering": "Creating account...",
+    "loginFailed": "Sign-in failed",
+    "registerFailed": "Registration failed",
+    "passwordMismatch": "Passwords do not match",
+    "passwordTooShort": "Password must be at least 4 characters",
+    "subtitle": "Ham-Sakhteman — building management",
+    "createManagerAccount": "Create a building manager account"
+  },
+  "buildings": {
+    "myBuildings": "My buildings",
+    "createBuilding": "Create building",
+    "buildingName": "Building name",
+    "address": "Address",
+    "unitCount": "Number of units",
+    "description": "Description",
+    "members": "Members",
+    "units": "Units",
+    "invitation": "Invitation",
+    "inviteLink": "Invitation link",
+    "inviteCode": "Invitation code",
+    "copyLink": "Copy link",
+    "share": "Share",
+    "joinBuilding": "Join building",
+    "joinSuccess": "Joined successfully",
+    "joinCode": "Invitation code",
+    "join": "Join",
+    "joining": "Joining...",
+    "loginRequired": "Sign in",
+    "loginRequiredHint": "Sign in to create or manage buildings",
+    "noBuildings": "No buildings found",
+    "noBuildingsHint": "Create a building or join with an invitation.",
+    "you": "You",
+    "other": "Other",
+    "managerLabel": "Manager"
   }
 }

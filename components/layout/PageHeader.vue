@@ -12,8 +12,8 @@ withDefaults(defineProps<{
 <template>
   <div class="flex items-end justify-between gap-4 mb-5">
     <div>
-      <h2 v-if="title" class="text-xl font-extrabold text-slate-900 tracking-tight leading-tight">{{ title }}</h2>
-      <p v-if="subtitle" class="text-sm text-slate-500 mt-1 font-medium">{{ subtitle }}</p>
+      <h2 v-if="title" class="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight">{{ title }}</h2>
+      <p v-if="subtitle" class="text-sm text-slate-500 dark:text-slate-400 mt-1 font-medium">{{ subtitle }}</p>
     </div>
     <NuxtLink v-if="action" to="#" class="shrink-0 text-sm font-semibold text-primary-600 hover:text-primary-700 flex items-center gap-1 bg-primary-50 hover:bg-primary-100 px-3 py-2 rounded-xl transition-colors border border-primary-100/60">
       {{ action }}

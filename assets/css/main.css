@@ -14,6 +14,10 @@
     color: #0f172a;
     overflow-x: hidden;
   }
+  html.dark body {
+    background-color: #020617;
+    color: #f1f5f9;
+  }
   ::selection {
     background: rgba(20, 184, 166, 0.2);
     color: inherit;
@@ -29,6 +33,17 @@
   .ltr-text-align { text-align: left; }
   .scrollbar-hide::-webkit-scrollbar { display: none; }
   .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-enter-active,
+  .fade-leave-active,
+  .transition-all,
+  .transition-colors,
+  .transition-transform {
+    transition: none !important;
+    animation: none !important;
+  }
 }
 
 .fade-enter-active,

@@ -52,15 +52,29 @@ export const useBuildings = () => {
 
   const getBuilding = (id: string) => buildings.value.find((building) => building.id === id) || null
 
+  const primaryBuildingId = computed(() => buildings.value[0]?.id || '')
+
+  const resolveBuildingId = (preferred?: string | null) => {
+    if (preferred && buildings.value.some((building) => building.id === preferred)) return preferred
+    return primaryBuildingId.value
+  }
+
+  const isBuildingManager = (buildingId?: string | null) => {
+    if (!auth.user || !buildingId) return false
+    if (auth.user.role === 'admin') return true
+    const building = getBuilding(buildingId)
+    if (building?.managerId === auth.user.id) return true
+    const member = (members.value[buildingId] || []).find((item) => item.userId === auth.user?.id)
+    return member?.role === 'manager'
+  }
+
   const createBuilding = async (data: { name: string, address: string, description?: string, unitCount?: number, residentCount?: number }) => {
     actionError.value = null
     try {
-    const building = await apiFetch<Building>('/api/buildings', { method: 'POST', body: data })
-    buildings.value = [building, ...buildings.value.filter((item) => item.id !== building.id)]
-    units.value = { ...units.value, [building.id]: [] }
-    members.value = { ...members.value, [building.id]: [] }
-    invitations.value = { ...invitations.value, [building.id]: [] }
-    return building
+      const building = await apiFetch<Building>('/api/buildings', { method: 'POST', body: data })
+      buildings.value = [building, ...buildings.value.filter((item) => item.id !== building.id)]
+      await refresh()
+      return buildings.value.find((item) => item.id === building.id) || building
     } catch (error) {
       actionError.value = apiErrorMessage(error, 'ساخت ساختمان ناموفق بود')
       throw error
@@ -156,11 +170,13 @@ export const useBuildings = () => {
   }
 
   const joinByCode = async (code: string) => {
+    actionError.value = null
     try {
       await apiFetch('/api/invitations/join', { method: 'POST', body: { code } })
       await refresh()
       return true
-    } catch {
+    } catch (error) {
+      actionError.value = apiErrorMessage(error, 'پیوستن به ساختمان ناموفق بود')
       return false
     }
   }
@@ -173,6 +189,9 @@ export const useBuildings = () => {
     loading,
     loadError,
     actionError,
+    primaryBuildingId,
+    resolveBuildingId,
+    isBuildingManager,
     createBuilding,
     getBuilding,
     updateBuilding,

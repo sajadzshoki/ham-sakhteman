@@ -10,7 +10,7 @@ withDefaults(defineProps<{
 
 <template>
   <div
-    class="bg-white rounded-3xl border border-slate-100/80 shadow-soft transition-all duration-300"
+    class="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100/80 dark:border-slate-800 shadow-soft transition-all duration-300"
     :class="[
       padding === 'sm' ? 'p-4' : padding === 'md' ? 'p-5' : padding === 'lg' ? 'p-7' : 'p-0',
       hover ? 'hover:shadow-soft-lg hover:-translate-y-0.5' : '',

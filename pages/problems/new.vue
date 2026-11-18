@@ -1,22 +1,25 @@
 <script setup lang="ts">
 const { t } = useI18n()
 const auth = useAuth()
-const { buildings } = useBuildings()
+const { primaryBuildingId } = useBuildings()
 const { create } = useProblems()
-const route = useRoute()
 
 const cat = ref('other')
 const title = ref('')
 const desc = ref('')
-const currentBuildingId = computed(() => buildings.value[0]?.id || 'b-1')
+const currentBuildingId = computed(() => primaryBuildingId.value)
 
 const formError = ref('')
 
 const submit = async () => {
   formError.value = ''
   if (!title.value.trim()) return
+  if (!currentBuildingId.value) {
+    formError.value = 'ابتدا یک ساختمان انتخاب کنید'
+    return
+  }
   try {
-    await create({ buildingId: currentBuildingId.value, category: cat.value as any, title: title.value, description: desc.value, createdBy: (auth.user as any)?.id || 'system' })
+    await create({ buildingId: currentBuildingId.value, category: cat.value as any, title: title.value, description: desc.value, createdBy: auth.user?.id || '' })
     navigateTo('/problems')
   } catch (error) {
     formError.value = apiErrorMessage(error, 'ثبت گزارش ناموفق بود')

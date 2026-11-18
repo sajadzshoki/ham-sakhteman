@@ -22,8 +22,14 @@ const onSearch = () => {}
 
     <section class="mb-4">
       <div class="relative">
-        <Icon name="i-lucide-search" class="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
-        <input v-model="q" @input="onSearch" type="text" placeholder="نام خدماتی یا دسته..." class="w-full h-12 pr-10 pl-4 rounded-2xl bg-white border border-slate-200 text-sm font-medium text-slate-900 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-primary-200 focus:border-primary-300 transition-all shadow-soft" />
+        <Icon name="i-lucide-search" class="absolute end-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
+        <input
+          v-model="q"
+          type="text"
+          :placeholder="t('services.searchPlaceholder')"
+          class="w-full h-12 pe-10 ps-4 rounded-2xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 text-sm font-medium text-slate-900 dark:text-slate-100 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-primary-200 focus:border-primary-300 transition-all shadow-soft"
+          @input="onSearch"
+        />
       </div>
     </section>
 

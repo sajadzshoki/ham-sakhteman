@@ -1,14 +1,15 @@
 <script setup lang="ts">
 const { t } = useI18n()
 const auth = useAuth()
-const { buildings } = useBuildings()
+const { primaryBuildingId, isBuildingManager } = useBuildings()
 const { getByBuilding, getById, create, update, categoryLabels, statusLabels, loading, loadError, refresh } = useProblems()
 
 const route = useRoute()
 const id = computed(() => route.query.id as string)
 const detail = computed(() => id.value ? getById(id.value) : null)
-const currentBuildingId = computed(() => buildings.value[0]?.id || 'b-1')
-const list = computed(() => getByBuilding(currentBuildingId.value))
+const currentBuildingId = computed(() => primaryBuildingId.value)
+const canManage = computed(() => isBuildingManager(currentBuildingId.value))
+const list = computed(() => currentBuildingId.value ? getByBuilding(currentBuildingId.value) : [])
 
 const categoryFilter = ref('all')
 const filtered = computed(() => {
@@ -22,8 +23,8 @@ const title = ref('')
 const desc = ref('')
 
 const submit = () => {
-  if (!title.value.trim()) return
-  create({ buildingId: currentBuildingId.value, category: cat.value as any, title: title.value, description: desc.value, createdBy: (auth.user as any)?.id || 'system' })
+  if (!title.value.trim() || !currentBuildingId.value) return
+  create({ buildingId: currentBuildingId.value, category: cat.value as any, title: title.value, description: desc.value, createdBy: auth.user?.id || '' })
   title.value = ''; desc.value = ''; cat.value = 'other'; showForm.value = false
 }
 
@@ -38,9 +39,10 @@ const updateStatus = (reportId: string, status: 'new' | 'in-progress' | 'resolve
       <button v-for="c in [{value:'all',label:'همه'},{value:'water',label:'آب'},{value:'electricity',label:'برق'},{value:'elevator',label:'آسانسور'},{value:'gas',label:'گاز'},{value:'common',label:'مشاعات'},{value:'cleaning',label:'نظافت'},{value:'other',label:'سایر'}]" :key="c.value" @click="categoryFilter = c.value" class="shrink-0 px-3 py-1.5 rounded-xl text-xs font-extrabold transition-colors border" :class="categoryFilter === c.value ? 'bg-primary-600 text-white border-primary-600 shadow-soft' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'">{{ c.label }}</button>
     </div>
 
-    <div v-if="auth.isResident || auth.isManager" class="flex justify-end mb-4">
+    <div v-if="auth.isAuthenticated && currentBuildingId" class="flex justify-end mb-4">
       <NuxtLink to="/problems/new" class="px-4 py-2 rounded-xl bg-gradient-to-br from-primary-500 to-teal-600 text-white text-sm font-extrabold shadow-soft">+ گزارش جدید</NuxtLink>
     </div>
+    <EmptyState v-if="!currentBuildingId" title="ساختمانی یافت نشد" message="ابتدا یک ساختمان بسازید یا به یکی بپیوندید." />
 
     <LoadingState v-if="loading" />
     <ErrorState v-else-if="loadError" :message="loadError" :retry="refresh" />
@@ -53,7 +55,7 @@ const updateStatus = (reportId: string, status: 'new' | 'in-progress' | 'resolve
         </div>
         <h2 class="text-xl font-extrabold text-slate-900 leading-tight mb-2">{{ detail.title }}</h2>
         <p class="text-sm text-slate-600 font-medium leading-relaxed whitespace-pre-wrap mb-3">{{ detail.description }}</p>
-        <div v-if="auth.isManager" class="flex gap-2">
+        <div v-if="canManage" class="flex gap-2">
           <button @click="updateStatus(detail.id, 'new')" class="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-600 text-xs font-extrabold">جدید</button>
           <button @click="updateStatus(detail.id, 'in-progress')" class="px-3 py-1.5 rounded-xl bg-amber-50 text-amber-600 text-xs font-extrabold">در حال پیگیری</button>
           <button @click="updateStatus(detail.id, 'resolved')" class="px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-600 text-xs font-extrabold">حل شده</button>

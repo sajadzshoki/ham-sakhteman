@@ -1,4 +1,8 @@
 {
+  "brand": {
+    "name": "هم‌ساختمان",
+    "tagline": "مدیریت ساختمان"
+  },
   "nav": {
     "home": "خانه",
     "building": "ساختمان",
@@ -19,7 +23,10 @@
     "loading": "در حال بارگذاری...",
     "error": "خطا",
     "empty": "موردی یافت نشد",
-    "success": "انجام شد"
+    "success": "انجام شد",
+    "toggleTheme": "تغییر تم",
+    "retry": "تلاش مجدد",
+    "back": "بازگشت"
   },
   "home": {
     "title": "خانه",
@@ -29,7 +36,29 @@
     "buildingStatus": "وضعیت ساختمان",
     "upcomingEvents": "رویدادهای پیش رو",
     "notifications": "اعلان‌ها",
-    "viewAll": "مشاهده همه"
+    "viewAll": "مشاهده همه",
+    "greeting": "سلام {name}",
+    "guestName": "کاربر",
+    "activeStatus": "وضعیت فعال",
+    "welcomeMessage": "خوش آمدید به مدیریت ساختمان هم‌ساختمان",
+    "selectBuilding": "ابتدا یک ساختمان بسازید یا به یکی بپیوندید",
+    "finance": "وضعیت مالی",
+    "financeSubtitle": "درآمد، هزینه و مانده",
+    "chargeIncome": "درآمد شارژ",
+    "expenses": "هزینه‌ها",
+    "balance": "مانده",
+    "paidCount": "پرداخت شده",
+    "openProblems": "مشکلات باز",
+    "openProblemsSubtitle": "گزارش‌های در حال بررسی",
+    "latestAnnouncements": "آخرین اطلاعیه‌ها",
+    "announcementsSubtitle": "اطلاعیه‌های ساختمان",
+    "units": "واحد",
+    "residents": "ساکن",
+    "noNotifications": "اعلانی وجود ندارد",
+    "announcements": "اعلان‌ها",
+    "reportProblem": "گزارش مشکل",
+    "charges": "شارژها",
+    "buildings": "ساختمان‌ها"
   },
   "building": {
     "title": "ساختمان",
@@ -57,7 +86,11 @@
     "personalInfo": "اطلاعات شخصی",
     "security": "امنیت",
     "notifications": "اعلان‌ها",
-    "language": "زبان"
+    "language": "زبان",
+    "logout": "خروج از حساب",
+    "noUnit": "واحدی ثبت نشده",
+    "saveChanges": "ذخیره تغییرات",
+    "saving": "در حال ذخیره..."
   },
   "auth": {
     "login": "ورود",
@@ -72,7 +105,15 @@
     "alreadyHaveAccount": "قبلاً حساب دارید؟",
     "noAccount": "حساب ندارید؟",
     "manager": "مدیر ساختمان",
-    "resident": "ساکن"
+    "resident": "ساکن",
+    "loggingIn": "در حال ورود...",
+    "registering": "در حال ثبت...",
+    "loginFailed": "ورود ناموفق بود",
+    "registerFailed": "تأیید ثبت‌نام ناموفق",
+    "passwordMismatch": "رمزها یکسان نیستند",
+    "passwordTooShort": "رمز حداقل ۴ کاراکتر",
+    "subtitle": "هم‌ساختمان — مدیریت ساختمان",
+    "createManagerAccount": "ایجاد حساب مدیر ساختمان"
   },
   "buildings": {
     "myBuildings": "ساختمان‌های من",
@@ -89,6 +130,16 @@
     "copyLink": "کپی لینک",
     "share": "اشتراک‌گذاری",
     "joinBuilding": "پیوستن به ساختمان",
-    "joinSuccess": "با موفقیت پیوستید"
+    "joinSuccess": "با موفقیت پیوستید",
+    "joinCode": "کد دعوت",
+    "join": "پیوستن",
+    "joining": "در حال پیوستن...",
+    "loginRequired": "ورود به حساب",
+    "loginRequiredHint": "برای ساخت یا مدیریت ساختمان وارد شوید",
+    "noBuildings": "ساختمانی یافت نشد",
+    "noBuildingsHint": "ساختمان خود را بسازید یا از طریق دعوت پیوستید.",
+    "you": "شما",
+    "other": "دیگری",
+    "managerLabel": "مدیر"
   }
 }
